@@ -3,27 +3,44 @@
  * ページルーティング・ナビゲーション・共通UI管理
  */
 
-import { openDB, STORES, dbPut, dbGetAll, getActiveProducts } from './db.js';
-import { initDashboard } from './dashboard.js';
-import { initManufacture } from './manufacture.js';
-import { initLoss } from './loss.js';
-import { initReport } from './report.js';
-import { initDiscount } from './discount.js';
-import { initProducts } from './products.js';
-import { initSettings } from './settings.js';
+import { openDB, STORES, dbPut, dbGetAll } from './db.js';
 
 /* ====================================================
    ページ定義
 ==================================================== */
 const PAGES = {
-  dashboard:  { title: 'ダッシュボード', init: initDashboard },
-  manufacture:{ title: '製造計算',       init: initManufacture },
-  loss:       { title: 'ロス計算',        init: initLoss },
-  discount:   { title: '割引分析',        init: initDiscount },
-  report:     { title: '日報',            init: initReport },
-  products:   { title: '商品管理',        init: initProducts },
-  settings:   { title: '設定',            init: initSettings },
+  dashboard:   { title: 'ダッシュボード', modulePath: './dashboard.js', exportName: 'initDashboard' },
+  manufacture: { title: '製造計算',       modulePath: './manufacture.js', exportName: 'initManufacture' },
+  loss:        { title: 'ロス計算',        modulePath: './loss.js', exportName: 'initLoss' },
+  discount:    { title: '割引分析',        modulePath: './discount.js', exportName: 'initDiscount' },
+  report:      { title: '日報',            modulePath: './report.js', exportName: 'initReport' },
+  products:    { title: '商品管理',        modulePath: './products.js', exportName: 'initProducts' },
+  settings:    { title: '設定',            modulePath: './settings.js', exportName: 'initSettings' },
 };
+
+async function loadPageInitializer(pageId) {
+  const page = PAGES[pageId];
+  if (!page) return null;
+
+  try {
+    const mod = await import(page.modulePath);
+    if (typeof mod[page.exportName] === 'function') {
+      return mod[page.exportName];
+    }
+  } catch (err) {
+    console.warn(`Page module load failed [${pageId}]`, err);
+  }
+
+  return async (container) => {
+    container.innerHTML = `
+      <div class="page">
+        <div class="empty-state">
+          <div class="empty-state-icon">📄</div>
+          <div class="empty-state-text">${page.title}ページはまだ準備中です</div>
+        </div>
+      </div>`;
+  };
+}
 
 /* ====================================================
    DOM参照
@@ -119,7 +136,12 @@ export async function navigateTo(pageId) {
   // ページ初期化
   currentPage = pageId;
   try {
-    await PAGES[pageId].init(mainContent);
+    const initPage = await loadPageInitializer(pageId);
+    if (typeof initPage === 'function') {
+      await initPage(mainContent);
+    } else {
+      throw new Error(`Page initializer not found: ${pageId}`);
+    }
   } catch (err) {
     console.error(`Page init error [${pageId}]:`, err);
     mainContent.innerHTML = `
