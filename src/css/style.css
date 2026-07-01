@@ -5,11 +5,11 @@
 
 /* ---------- CSS変数（カラーシステム） ---------- */
 :root {
-  /* Primary: 新鮮な緑（サンドイッチの葉野菜をイメージ） */
-  --primary:        #2E7D32;
-  --primary-light:  #60AD5E;
-  --primary-dark:   #005005;
-  --primary-bg:     #E8F5E9;
+  /* Primary: イメージカラーの青 */
+  --primary:        #3b7fce;
+  --primary-light:  #5e77ad;
+  --primary-dark:   #002950;
+  --primary-bg:     #e8eff5;
 
   /* Accent: 温かみあるアンバー（パンの焼き色） */
   --accent:         #F57F17;
