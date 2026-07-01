@@ -41,7 +41,7 @@ ${Number(m)}月${Number(d)}日 ${weekday}曜日
 総売上 ${reportData.sales.toLocaleString()}円
 客数 ${reportData.customers}人
 客単価 ${unitPrice.toLocaleString()}円
-♥
+
 総括
 ${reportData.body}
 ${reportData.name}`;
