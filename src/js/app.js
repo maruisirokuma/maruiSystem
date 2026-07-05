@@ -153,38 +153,72 @@ function updateHeaderDate() {
 /* ====================================================
    初期商品データ投入（ユーザー指定データ）
 ==================================================== */
+const INITIAL_PRODUCT_DATA_VERSION = 1;
+const INITIAL_PRODUCT_DATA_KEY = 'initialProductDataVersion';
+
+const initialProducts = [
+  { name: 'いちごサンド',             price: 550, cost: 197, sortOrder:  1, isActive: true },
+  { name: '甘夏サンド',               price: 500, cost: 154, sortOrder:  2, isActive: true },
+  { name: 'ピーナツバターサンド',     price: 270, cost:  83, sortOrder:  3, isActive: true },
+  { name: 'フルーツミックスサンド',   price: 500, cost: 148, sortOrder:  4, isActive: true },
+  { name: 'ブルーベリーサンド',       price: 380, cost: 114, sortOrder:  5, isActive: true },
+  { name: 'バナナショコラサンド',     price: 400, cost:  93, sortOrder:  6, isActive: true },
+  { name: '照り焼きチキンサンド',     price: 440, cost: 126, sortOrder:  7, isActive: true },
+  { name: 'ハムタマゴサンド',         price: 410, cost: 131, sortOrder:  8, isActive: true },
+  { name: 'ツナサラダサンド',         price: 380, cost: 117, sortOrder:  9, isActive: true },
+  { name: 'ハム野菜サンド',           price: 380, cost: 108, sortOrder: 10, isActive: true },
+  { name: 'メンチカツサンド',         price: 480, cost: 139, sortOrder: 11, isActive: true },
+  { name: '味噌カツサンド',           price: 480, cost: 157, sortOrder: 12, isActive: true },
+  { name: 'フィッシュサンド',         price: 380, cost: 100, sortOrder: 13, isActive: true },
+  { name: 'タマゴサンド',             price: 320, cost: 111, sortOrder: 14, isActive: true },
+  { name: 'ごぼうサラダサンド',       price: 380, cost: 115, sortOrder: 15, isActive: true },
+  { name: 'アボカドサーモンサンド',   price: 530, cost: 186, sortOrder: 16, isActive: true },
+  { name: 'エビとブロッコリーのサンド', price: 480, cost: 164, sortOrder: 17, isActive: true },
+  { name: 'ポテトサンド',             price: 340, cost:  96, sortOrder: 18, isActive: true },
+  { name: 'タマゴ野菜サンド',         price: 350, cost: 113, sortOrder: 19, isActive: true },
+  { name: 'パストラミビーフサンド',   price: 430, cost: 143, sortOrder: 20, isActive: true },
+  { name: 'コロッケサンド',           price: 400, cost: 118, sortOrder: 21, isActive: true },
+];
+
 async function seedProducts() {
   const all = await dbGetAll(STORES.PRODUCTS);
-  if (all.length > 0) return;
+  const currentVersion = Number(localStorage.getItem(INITIAL_PRODUCT_DATA_KEY) || '0');
 
-  const initialProducts = [
-    { name: 'いちごサンド',             price: 550, cost: 197, sortOrder:  1, isActive: true },
-    { name: '甘夏サンド',               price: 500, cost: 154, sortOrder:  2, isActive: true },
-    { name: 'ピーナツバターサンド',     price: 270, cost:  83, sortOrder:  3, isActive: true },
-    { name: 'フルーツミックスサンド',   price: 500, cost: 148, sortOrder:  4, isActive: true },
-    { name: 'ブルーベリーサンド',       price: 380, cost: 114, sortOrder:  5, isActive: true },
-    { name: 'バナナショコラサンド',     price: 400, cost:  93, sortOrder:  6, isActive: true },
-    { name: '照り焼きチキンサンド',     price: 440, cost: 126, sortOrder:  7, isActive: true },
-    { name: 'ハムタマゴサンド',         price: 410, cost: 131, sortOrder:  8, isActive: true },
-    { name: 'ツナサラダサンド',         price: 380, cost: 117, sortOrder:  9, isActive: true },
-    { name: 'ハム野菜サンド',           price: 380, cost: 108, sortOrder: 10, isActive: true },
-    { name: 'メンチカツサンド',         price: 480, cost: 139, sortOrder: 11, isActive: true },
-    { name: '味噌カツサンド',           price: 480, cost: 157, sortOrder: 12, isActive: true },
-    { name: 'フィッシュサンド',         price: 380, cost: 100, sortOrder: 13, isActive: true },
-    { name: 'タマゴサンド',             price: 320, cost: 111, sortOrder: 14, isActive: true },
-    { name: 'ごぼうサラダサンド',       price: 380, cost: 115, sortOrder: 15, isActive: true },
-    { name: 'アボカドサーモンサンド',   price: 530, cost: 186, sortOrder: 16, isActive: true },
-    { name: 'エビとブロッコリーのサンド', price: 480, cost: 164, sortOrder: 17, isActive: true },
-    { name: 'ポテトサンド',             price: 340, cost:  96, sortOrder: 18, isActive: true },
-    { name: 'タマゴ野菜サンド',         price: 350, cost: 113, sortOrder: 19, isActive: true },
-    { name: 'パストラミビーフサンド',   price: 430, cost: 143, sortOrder: 20, isActive: true },
-    { name: 'コロッケサンド',           price: 400, cost: 118, sortOrder: 21, isActive: true },
-  ];
-
-  for (const p of initialProducts) {
-    await dbPut(STORES.PRODUCTS, { ...p, category: '' });
+  if (all.length === 0) {
+    for (const p of initialProducts) {
+      await dbPut(STORES.PRODUCTS, { ...p, category: '' });
+    }
+    localStorage.setItem(INITIAL_PRODUCT_DATA_KEY, String(INITIAL_PRODUCT_DATA_VERSION));
+    console.log('商品マスタ（ユーザー指定データ21商品）を投入しました');
+    return;
   }
-  console.log('商品マスタ（ユーザー指定データ21商品）を投入しました');
+
+  if (currentVersion < INITIAL_PRODUCT_DATA_VERSION) {
+    const existingByName = new Map(all.map(p => [p.name, p]));
+    for (const initial of initialProducts) {
+      const existing = existingByName.get(initial.name);
+      if (existing) {
+        const needsUpdate = existing.price !== initial.price
+          || existing.cost !== initial.cost
+          || existing.sortOrder !== initial.sortOrder
+          || existing.isActive !== initial.isActive;
+        if (needsUpdate) {
+          await dbPut(STORES.PRODUCTS, {
+            ...existing,
+            price: initial.price,
+            cost: initial.cost,
+            sortOrder: initial.sortOrder,
+            isActive: initial.isActive,
+            category: existing.category ?? '',
+          });
+        }
+      } else {
+        await dbPut(STORES.PRODUCTS, { ...initial, category: '' });
+      }
+    }
+    localStorage.setItem(INITIAL_PRODUCT_DATA_KEY, String(INITIAL_PRODUCT_DATA_VERSION));
+    console.log('商品マスタを更新して最新初期データを反映しました');
+  }
 }
 
 /* ====================================================
