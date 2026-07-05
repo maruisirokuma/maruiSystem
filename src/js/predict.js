@@ -1,31 +1,53 @@
 /**
  * predict.js - 完売予測・割引推奨・追加製造支援の計算ロジック
- * 割引分析画面とダッシュボードで共通利用する
+ *
+ * 理想在庫（17:00時点の推奨個数）
+ *   月・火・水 → 48個
+ *   木・金     → 55個
+ *   土         → 60個
+ *   日         → 48個（暫定）
  */
 
-import { dbGetAll, dbGetByIndex, STORES } from './db.js';
-import { getWeekdayStr, todayStr } from './app.js';
+import { dbGetAll, STORES } from './db.js';
+
+/* ------------------------------------------------
+   曜日別 17:00 推奨在庫（実店舗データより）
+------------------------------------------------ */
+const IDEAL_17_BY_WEEKDAY = {
+  '日': 48, '月': 48, '火': 48, '水': 48,
+  '木': 55, '金': 55, '土': 60,
+};
 
 /**
- * 過去の同曜日のDiscountAnalysisRecordから17:00〜20:00の曜日別平均在庫を算出
- * @param {string} weekday 曜日（例: '月'）
- * @param {string[]} excludeDates 除外する日付（当日など）
- * @returns {Promise<object>} time -> 平均在庫数
+ * 17:00〜20:00の10分刻み時刻リストを生成
+ */
+export function generateTimeSlots() {
+  const slots = [];
+  for (let h = 17; h <= 20; h++) {
+    for (let m = 0; m < 60; m += 10) {
+      if (h === 20 && m > 0) break;
+      slots.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+    }
+  }
+  return slots; // 19スロット: 17:00〜20:00
+}
+
+/**
+ * 過去の同曜日データから曜日別平均在庫を算出
+ * データがない時刻は null を返す（グラフ上で線が途切れる）
  */
 export async function getWeekdayAverageStock(weekday, excludeDates = []) {
   const all = await dbGetAll(STORES.DISCOUNT_ANALYSIS);
-  const sameWeekday = all.filter(r => r.weekday === weekday && !excludeDates.includes(r.date));
-
-  const timeSlots = generateTimeSlots();
+  const sameDay = all.filter(r => r.weekday === weekday && !excludeDates.includes(r.date));
+  const slots = generateTimeSlots();
   const result = {};
 
-  timeSlots.forEach(time => {
-    const values = sameWeekday
-      .map(r => (r.inventoryLogs || []).find(log => log.time === time)?.stock)
+  slots.forEach(time => {
+    const values = sameDay
+      .map(r => (r.inventoryLogs || []).find(l => l.time === time)?.stock)
       .filter(v => v != null);
-
     result[time] = values.length > 0
-      ? Math.round(values.reduce((a, b) => a + b, 0) / values.length)
+      ? Math.round(values.reduce((a,b) => a+b, 0) / values.length)
       : null;
   });
 
@@ -33,15 +55,15 @@ export async function getWeekdayAverageStock(weekday, excludeDates = []) {
 }
 
 /**
- * 昨日のDiscountAnalysisRecordの在庫推移を取得
+ * 昨日の在庫ログを取得
  */
 export async function getYesterdayStock() {
   const yesterday = getYesterdayStr();
-  const record = await dbGetAll(STORES.DISCOUNT_ANALYSIS).then(all => all.find(r => r.date === yesterday));
-
-  const timeSlots = generateTimeSlots();
+  const all = await dbGetAll(STORES.DISCOUNT_ANALYSIS);
+  const record = all.find(r => r.date === yesterday);
+  const slots = generateTimeSlots();
   const result = {};
-  timeSlots.forEach(time => {
+  slots.forEach(time => {
     const log = record ? (record.inventoryLogs || []).find(l => l.time === time) : null;
     result[time] = log ? log.stock : null;
   });
@@ -55,131 +77,122 @@ function getYesterdayStr() {
 }
 
 /**
- * 17:00〜20:00の10分刻み時刻リストを生成
+ * 理想在庫を計算（Version1: 曜日別平均 or 実績ベース推奨数）
+ * - 過去データがあるスロットは平均値
+ * - 過去データがないスロットは 17:00 推奨数から線形に減少する想定ラインを使用
  */
-export function generateTimeSlots() {
-  const slots = [];
-  for (let h = 17; h <= 20; h++) {
-    for (let m = 0; m < 60; m += 10) {
-      if (h === 20 && m > 0) break; // 20:00で終了
-      slots.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+export function calcIdealStock(weekdayAvg, weekday) {
+  const slots = generateTimeSlots();
+  const base17 = IDEAL_17_BY_WEEKDAY[weekday] ?? 48;
+  // 17:00〜20:00 で完売(0個)になるよう線形に減少する理想ライン
+  const totalSlots = slots.length - 1; // 18段階
+
+  const result = {};
+  slots.forEach((time, i) => {
+    if (weekdayAvg[time] != null) {
+      result[time] = weekdayAvg[time];
+    } else {
+      // 線形補間: 17:00=base17, 20:00=0
+      result[time] = Math.max(0, Math.round(base17 * (1 - i / totalSlots)));
     }
-  }
-  return slots;
+  });
+  return result;
 }
 
 /**
- * 理想在庫を計算（Version1: 曜日別平均をそのまま使用）
- * @param {object} weekdayAvg time -> 平均在庫
+ * 17:00時点の推奨在庫数を返す（曜日ごと）
  */
-export function calcIdealStock(weekdayAvg) {
-  // Version1はそのまま曜日別平均を理想在庫とする
-  return { ...weekdayAvg };
+export function getIdeal17(weekday) {
+  return IDEAL_17_BY_WEEKDAY[weekday] ?? 48;
 }
 
 /**
- * 完売予測：現在の在庫減少ペースから完売時刻・完売確率を算出
- * @param {Array<{time, stock}>} inventoryLogs 当日の実測在庫ログ（時系列）
- * @returns {{ probability: number, predictedTime: string|null }}
+ * 完売予測：在庫減少ペースから完売時刻・確率を算出
  */
 export function predictSoldOut(inventoryLogs) {
   if (!inventoryLogs || inventoryLogs.length < 2) {
     return { probability: 0, predictedTime: null };
   }
 
-  // 直近2点から減少ペース（個/分）を算出
-  const sorted = [...inventoryLogs].sort((a, b) => a.time.localeCompare(b.time));
+  const sorted = [...inventoryLogs].sort((a,b) => a.time.localeCompare(b.time));
   const last = sorted[sorted.length - 1];
-  const prev = sorted[Math.max(0, sorted.length - 3)]; // やや手前の点も使って平滑化
 
-  const minutesDiff = timeToMinutes(last.time) - timeToMinutes(prev.time);
-  const stockDiff = prev.stock - last.stock; // 正なら減少中
+  // 直近3点の平均ペースで計算（急激な変化を平滑化）
+  const span = sorted.slice(Math.max(0, sorted.length - 4));
+  const first = span[0];
+  const minutesDiff = toMinutes(last.time) - toMinutes(first.time);
+  const stockDiff = first.stock - last.stock;
 
   if (minutesDiff <= 0 || stockDiff <= 0) {
-    // 在庫が減っていない・データ不足の場合は確率低め
-    return { probability: 10, predictedTime: null };
+    return { probability: 15, predictedTime: null };
   }
 
-  const ratePerMinute = stockDiff / minutesDiff;
-  const minutesToZero = last.stock / ratePerMinute;
-  const predictedMinutes = timeToMinutes(last.time) + minutesToZero;
+  const ratePerMin = stockDiff / minutesDiff;
+  const minsToZero = last.stock / ratePerMin;
+  const predictedMins = toMinutes(last.time) + minsToZero;
+  const closeMins = toMinutes('20:00');
 
-  // 20:00（閉店想定）までに完売するかで確率を算出
-  const closeMinutes = timeToMinutes('20:00');
   let probability;
-  if (predictedMinutes <= closeMinutes) {
-    // 早く完売するほど確率が高い
-    const margin = closeMinutes - predictedMinutes;
-    probability = Math.min(99, Math.round(60 + margin / 2));
+  if (predictedMins <= closeMins) {
+    const margin = closeMins - predictedMins;
+    probability = Math.min(99, Math.round(65 + margin / 1.5));
   } else {
-    // 閉店までに完売しない場合は低確率
-    const overrun = predictedMinutes - closeMinutes;
-    probability = Math.max(5, Math.round(50 - overrun));
+    const overrun = predictedMins - closeMins;
+    probability = Math.max(5, Math.round(55 - overrun * 1.5));
   }
 
   return {
     probability: Math.max(0, Math.min(99, probability)),
-    predictedTime: minutesToTime(Math.round(predictedMinutes)),
+    predictedTime: minsToTime(Math.round(predictedMins)),
   };
-}
-
-function timeToMinutes(t) {
-  const [h, m] = t.split(':').map(Number);
-  return h * 60 + m;
-}
-
-function minutesToTime(mins) {
-  const h = Math.floor(mins / 60) % 24;
-  const m = Math.round(mins % 60);
-  return `${String(h).padStart(2,'0')}:${String(Math.max(0,m)).padStart(2,'0')}`;
 }
 
 /**
  * 割引推奨を算出
- * @param {number} currentStock 現在在庫
- * @param {number} idealStock 理想在庫（その時刻）
- * @param {object} prediction predictSoldOutの結果
- * @param {string} currentTime 現在時刻
- * @returns {{ show: boolean, rate: number, reasons: string[] }}
  */
-export function getDiscountRecommendation(currentStock, idealStock, prediction, currentTime) {
+export function getDiscountRecommendation(currentStock, idealStock, prediction) {
   const reasons = [];
   let rate = 0;
 
   if (idealStock != null && currentStock > idealStock) {
     const over = currentStock - idealStock;
     reasons.push(`現在在庫が理想在庫を${over}個上回っています`);
-
     if (over >= 15) rate = 50;
     else if (over >= 8) rate = 30;
     else if (over >= 3) rate = 20;
   }
 
   if (prediction.predictedTime) {
-    reasons.push(`完売予測が${prediction.predictedTime}です`);
-    if (prediction.probability < 50 && rate === 0) {
-      rate = 20;
-      reasons.push('完売確率が低めのため早期割引を検討してください');
-    }
+    reasons.push(`完売予測時刻：${prediction.predictedTime}`);
   }
 
-  return {
-    show: rate > 0,
-    rate,
-    reasons,
-  };
+  if (prediction.probability < 50 && rate === 0) {
+    rate = 20;
+    reasons.push('完売確率が低いため早めの割引を検討してください');
+  }
+
+  return { show: rate > 0, rate, reasons };
 }
 
 /**
- * 追加製造の推奨数を算出（17:00時点用）
- * @param {number} currentStock 現在在庫
- * @param {number} idealStock 理想在庫（17:00時点）
+ * 追加製造の推奨数を算出（17:00時点）
  */
-export function getManufactureRecommendation(currentStock, idealStock) {
-  if (idealStock == null) return { count: 0, probability: null };
-  const diff = idealStock - currentStock;
-  const count = Math.max(0, diff);
-  // 在庫が理想に近いほど完売確率が高いと仮定した簡易指標
-  const probability = count > 0 ? Math.min(95, 70 + count) : 60;
-  return { count, probability };
+export function getManufactureRecommendation(currentStock, weekday) {
+  const ideal17 = getIdeal17(weekday);
+  const count = Math.max(0, ideal17 - currentStock);
+  const probability = count > 0
+    ? Math.min(95, 60 + Math.round(count * 0.8))
+    : 55;
+  return { count, probability, ideal17 };
+}
+
+export function toMinutes(t) {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function minsToTime(mins) {
+  const h = Math.floor(mins / 60) % 24;
+  const m = Math.round(mins % 60);
+  return `${String(h).padStart(2,'0')}:${String(Math.max(0,m)).padStart(2,'0')}`;
 }

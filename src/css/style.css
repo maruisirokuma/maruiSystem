@@ -956,3 +956,70 @@ body {
     padding-top: env(safe-area-inset-top);
   }
 }
+
+/* ===================================================
+   追加スタイル v1.1
+=================================================== */
+
+/* ---------- 文字サイズ選択ボタン ---------- */
+.font-size-group {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.font-size-btn {
+  flex: 1;
+  min-height: 56px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+  font-family: var(--font-base);
+}
+
+.font-size-btn.active {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+  color: var(--primary);
+}
+
+.font-size-btn:active {
+  transform: scale(0.96);
+}
+
+/* ---------- 合計バー内セクション区切り ---------- */
+.summary-divider {
+  border-top: 1px solid rgba(255,255,255,0.4);
+  margin: var(--spacing-sm) 0;
+}
+
+.summary-section-label {
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.75;
+  text-align: center;
+  letter-spacing: 1px;
+  margin-bottom: var(--spacing-xs);
+}
+
+/* ---------- ロス計算テーブル内のinput ---------- */
+.loss-cell-input::-webkit-inner-spin-button,
+.loss-cell-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+}
+.loss-cell-input:focus {
+  outline: none;
+  border-color: var(--primary) !important;
+  background: #FFFDE7 !important;
+}
+
+/* ---------- 元に戻すボタンの無効状態を明示 ---------- */
+button:disabled {
+  cursor: not-allowed !important;
+}

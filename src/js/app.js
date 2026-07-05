@@ -1,6 +1,6 @@
 /**
  * app.js - アプリケーションエントリーポイント
- * ページルーティング・ナビゲーション・共通UI管理
+ * ページルーティング・ナビゲーション・共通UI・フォントサイズ設定管理
  */
 
 import { openDB, STORES, dbPut, dbGetAll, getActiveProducts } from './db.js';
@@ -16,13 +16,13 @@ import { initSettings } from './settings.js';
    ページ定義
 ==================================================== */
 const PAGES = {
-  dashboard:  { title: 'ダッシュボード', init: initDashboard },
-  manufacture:{ title: '製造計算',       init: initManufacture },
-  loss:       { title: 'ロス計算',        init: initLoss },
-  discount:   { title: '割引分析',        init: initDiscount },
-  report:     { title: '日報',            init: initReport },
-  products:   { title: '商品管理',        init: initProducts },
-  settings:   { title: '設定',            init: initSettings },
+  dashboard:   { title: 'ダッシュボード', init: initDashboard },
+  manufacture: { title: '製造計算',       init: initManufacture },
+  loss:        { title: 'ロス計算',        init: initLoss },
+  discount:    { title: '割引分析',        init: initDiscount },
+  report:      { title: '日報',            init: initReport },
+  products:    { title: '商品管理',        init: initProducts },
+  settings:    { title: '設定',            init: initSettings },
 };
 
 /* ====================================================
@@ -41,35 +41,50 @@ const toast         = document.getElementById('toast');
    共通ユーティリティ（グローバル公開）
 ==================================================== */
 
-/** トースト表示 */
 export function showToast(message, duration = 3000) {
   toast.textContent = message;
   toast.classList.add('show');
   setTimeout(() => toast.classList.remove('show'), duration);
 }
 
-/** 今日の日付文字列 "YYYY-MM-DD" */
 export function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-/** 数値を通貨文字列に変換 */
 export function formatCurrency(n) {
   return Number(n || 0).toLocaleString('ja-JP') + '円';
 }
 
-/** 曜日文字列 */
 export function getWeekdayStr(dateStr) {
   const days = ['日','月','火','水','木','金','土'];
   const d = dateStr ? new Date(dateStr) : new Date();
   return days[d.getDay()];
 }
 
-/** 現在時刻の "HH:MM" 文字列 */
+export function getWeekdayIndex(dateStr) {
+  const d = dateStr ? new Date(dateStr) : new Date();
+  return d.getDay(); // 0=日, 1=月, ...6=土
+}
+
 export function nowTimeStr() {
   const d = new Date();
   return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+/* ====================================================
+   フォントサイズ設定（localStorage保持）
+==================================================== */
+const FONT_SIZE_KEY = 'app_font_size';
+const FONT_SIZE_MAP = { small: '14px', medium: '16px', large: '19px' };
+
+export function applyFontSize(size) {
+  document.documentElement.style.fontSize = FONT_SIZE_MAP[size] || '16px';
+  localStorage.setItem(FONT_SIZE_KEY, size);
+}
+
+export function getSavedFontSize() {
+  return localStorage.getItem(FONT_SIZE_KEY) || 'medium';
 }
 
 /* ====================================================
@@ -94,30 +109,17 @@ drawerOverlay.addEventListener('click', closeDrawer);
 /* ====================================================
    ページルーティング
 ==================================================== */
-let currentPage = null;
-
 export async function navigateTo(pageId) {
-  if (!PAGES[pageId]) {
-    console.warn('Unknown page:', pageId);
-    return;
-  }
+  if (!PAGES[pageId]) return;
 
-  // アクティブNavアイテム更新
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('active', el.dataset.page === pageId);
   });
 
-  // ヘッダータイトル更新
   headerTitle.textContent = PAGES[pageId].title;
-
-  // ドロワーを閉じる
   closeDrawer();
-
-  // ローディング表示
   mainContent.innerHTML = `<div class="loading"><div class="spinner"></div></div>`;
 
-  // ページ初期化
-  currentPage = pageId;
   try {
     await PAGES[pageId].init(mainContent);
   } catch (err) {
@@ -132,9 +134,6 @@ export async function navigateTo(pageId) {
   }
 }
 
-/* ====================================================
-   ナビリンクのイベント設定
-==================================================== */
 document.querySelectorAll('.nav-item').forEach(el => {
   el.addEventListener('click', (e) => {
     e.preventDefault();
@@ -148,63 +147,68 @@ document.querySelectorAll('.nav-item').forEach(el => {
 function updateHeaderDate() {
   const d = new Date();
   const days = ['日','月','火','水','木','金','土'];
-  headerDate.textContent =
-    `${d.getMonth()+1}/${d.getDate()}（${days[d.getDay()]}）`;
+  headerDate.textContent = `${d.getMonth()+1}/${d.getDate()}（${days[d.getDay()]}）`;
 }
 
 /* ====================================================
-   初期データ投入（サンプル商品）
+   初期商品データ投入（実データ21商品）
 ==================================================== */
-async function seedSampleProducts() {
+async function seedProducts() {
   const all = await dbGetAll(STORES.PRODUCTS);
-  if (all.length > 0) return; // 既にデータがある場合はスキップ
+  if (all.length > 0) return;
 
-  const sampleProducts = [
-    { name: 'ハムサンド',           category: 'サンドイッチ', price: 320, cost: 150, sortOrder: 1, isActive: true },
-    { name: '卵サンド',             category: 'サンドイッチ', price: 300, cost: 140, sortOrder: 2, isActive: true },
-    { name: 'ツナサンド',           category: 'サンドイッチ', price: 310, cost: 145, sortOrder: 3, isActive: true },
-    { name: 'BLTサンド',            category: 'サンドイッチ', price: 380, cost: 180, sortOrder: 4, isActive: true },
-    { name: 'フルーツサンド',       category: 'サンドイッチ', price: 350, cost: 170, sortOrder: 5, isActive: true },
-    { name: 'チキンサンド',         category: 'サンドイッチ', price: 390, cost: 190, sortOrder: 6, isActive: true },
-    { name: 'ミックスサンド',       category: 'サンドイッチ', price: 420, cost: 200, sortOrder: 7, isActive: true },
-    { name: 'カツサンド',           category: 'サンドイッチ', price: 450, cost: 220, sortOrder: 8, isActive: true },
+  const products = [
+    { name: 'いちごサンド',             category: 'フルーツ系',   price: 550, cost: 197, sortOrder:  1, isActive: true },
+    { name: '甘夏サンド',               category: 'フルーツ系',   price: 500, cost: 154, sortOrder:  2, isActive: true },
+    { name: 'フルーツミックスサンド',   category: 'フルーツ系',   price: 500, cost: 148, sortOrder:  3, isActive: true },
+    { name: 'ブルーベリーサンド',       category: 'フルーツ系',   price: 380, cost: 114, sortOrder:  4, isActive: true },
+    { name: 'バナナショコラサンド',     category: 'フルーツ系',   price: 400, cost:  93, sortOrder:  5, isActive: true },
+    { name: 'ピーナツバターサンド',     category: 'その他',       price: 270, cost:  83, sortOrder:  6, isActive: true },
+    { name: '照り焼きチキンサンド',     category: '惣菜系',       price: 440, cost: 126, sortOrder:  7, isActive: true },
+    { name: 'ハムタマゴサンド',         category: '惣菜系',       price: 410, cost: 131, sortOrder:  8, isActive: true },
+    { name: 'ツナサラダサンド',         category: '惣菜系',       price: 380, cost: 117, sortOrder:  9, isActive: true },
+    { name: 'ハム野菜サンド',           category: '惣菜系',       price: 380, cost: 108, sortOrder: 10, isActive: true },
+    { name: 'メンチカツサンド',         category: '揚げ物系',     price: 480, cost: 139, sortOrder: 11, isActive: true },
+    { name: '味噌カツサンド',           category: '揚げ物系',     price: 480, cost: 157, sortOrder: 12, isActive: true },
+    { name: 'フィッシュサンド',         category: '揚げ物系',     price: 380, cost: 100, sortOrder: 13, isActive: true },
+    { name: 'コロッケサンド',           category: '揚げ物系',     price: 400, cost: 118, sortOrder: 14, isActive: true },
+    { name: 'タマゴサンド',             category: '惣菜系',       price: 320, cost: 111, sortOrder: 15, isActive: true },
+    { name: 'タマゴ野菜サンド',         category: '惣菜系',       price: 350, cost: 113, sortOrder: 16, isActive: true },
+    { name: 'ごぼうサラダサンド',       category: '惣菜系',       price: 380, cost: 115, sortOrder: 17, isActive: true },
+    { name: 'アボカドサーモンサンド',   category: '惣菜系',       price: 530, cost: 186, sortOrder: 18, isActive: true },
+    { name: 'エビとブロッコリーのサンド', category: '惣菜系',     price: 480, cost: 164, sortOrder: 19, isActive: true },
+    { name: 'ポテトサンド',             category: 'その他',       price: 340, cost:  96, sortOrder: 20, isActive: true },
+    { name: 'パストラミビーフサンド',   category: '惣菜系',       price: 430, cost: 143, sortOrder: 21, isActive: true },
   ];
 
-  for (const p of sampleProducts) {
+  for (const p of products) {
     await dbPut(STORES.PRODUCTS, p);
   }
-  console.log('サンプル商品を追加しました');
+  console.log('商品マスタ（実データ21商品）を投入しました');
 }
 
 /* ====================================================
    アプリ起動
 ==================================================== */
 async function main() {
-  // DB初期化
   await openDB();
+  await seedProducts();
 
-  // サンプルデータ投入
-  await seedSampleProducts();
+  // フォントサイズ復元
+  applyFontSize(getSavedFontSize());
 
-  // 日付表示
   updateHeaderDate();
-
-  // 1分ごとに日付更新
   setInterval(updateHeaderDate, 60_000);
 
-  // ダッシュボードから開始
   await navigateTo('dashboard');
 }
 
 main().catch(console.error);
 
-/* ====================================================
-   Service Worker 登録（PWA・オフライン対応）
-==================================================== */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch((err) => {
-      console.warn('ServiceWorker registration failed:', err);
+    navigator.serviceWorker.register('./sw.js').catch(err => {
+      console.warn('SW registration failed:', err);
     });
   });
 }

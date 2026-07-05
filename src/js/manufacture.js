@@ -1,41 +1,34 @@
 /**
  * manufacture.js - 製造計算画面
- * 商品ごとの製造個数を入力し、小計・総製造数・総額を計算する
+ * 修正：小計の表示ずれ修正、元に戻すボタンの見た目改善
  */
 
 import { dbGet, dbPut, STORES, getActiveProducts } from './db.js';
 import { showToast, todayStr } from './app.js';
 
 let products = [];
-let counts = {};      // productId -> count
-let history = [];      // 元に戻す用の履歴スタック
-let savedSnapshot = null;
+let counts = {};
+let history = [];
 
 export async function initManufacture(container) {
   products = await getActiveProducts();
-
-  // 当日の保存データがあれば復元
   const today = todayStr();
   const existing = await dbGet(STORES.MANUFACTURE, today);
 
   counts = {};
+  products.forEach(p => { counts[p.id] = 0; });
   if (existing) {
     existing.items.forEach(item => {
       counts[item.productId] = item.count;
     });
-  } else {
-    products.forEach(p => { counts[p.id] = 0; });
   }
 
   history = [];
-  savedSnapshot = JSON.stringify(counts);
-
   render(container);
 }
 
 function calcTotals() {
-  let totalCount = 0;
-  let totalPrice = 0;
+  let totalCount = 0, totalPrice = 0;
   products.forEach(p => {
     const c = counts[p.id] || 0;
     totalCount += c;
@@ -46,6 +39,7 @@ function calcTotals() {
 
 function render(container) {
   const { totalCount, totalPrice } = calcTotals();
+  const hasHistory = history.length > 0;
 
   container.innerHTML = `
     <div class="page page-enter">
@@ -57,16 +51,22 @@ function render(container) {
       ` : `
         <div class="card">
           <div class="data-table-wrap">
-            <table class="data-table">
+            <table class="data-table manufacture-table">
+              <colgroup>
+                <col style="width:35%">
+                <col style="width:18%">
+                <col style="width:28%">
+                <col style="width:19%">
+              </colgroup>
               <thead>
                 <tr>
-                  <th>品名</th>
+                  <th style="text-align:left;">品名</th>
                   <th>税込価格</th>
                   <th>製造個数</th>
                   <th>小計</th>
                 </tr>
               </thead>
-              <tbody id="manufactureBody">
+              <tbody>
                 ${products.map(p => rowHtml(p)).join('')}
               </tbody>
             </table>
@@ -85,7 +85,10 @@ function render(container) {
         </div>
 
         <div class="btn-group mb-md">
-          <button class="btn btn-ghost" id="undoBtn" ${history.length === 0 ? 'disabled' : ''}>↩ 元に戻す</button>
+          <button class="btn ${hasHistory ? 'btn-outline' : 'btn-ghost'}" id="undoBtn" ${hasHistory ? '' : 'disabled'}
+            style="${hasHistory ? '' : 'opacity:0.35; cursor:not-allowed;'}">
+            ↩ 元に戻す${hasHistory ? `（${history.length}）` : ''}
+          </button>
           <button class="btn btn-outline" id="clearBtn">クリア</button>
         </div>
         <button class="btn btn-primary btn-full" id="saveBtn">保存</button>
@@ -102,15 +105,18 @@ function rowHtml(p) {
   return `
     <tr data-id="${p.id}">
       <td>${escapeHtml(p.name)}</td>
-      <td>${p.price}円</td>
-      <td>
-        <div class="qty-spinner">
-          <button class="qty-btn minus-btn" data-id="${p.id}" aria-label="減らす">－</button>
-          <input type="number" class="qty-input count-input" data-id="${p.id}" value="${count}" min="0" inputmode="numeric" />
-          <button class="qty-btn plus-btn" data-id="${p.id}" aria-label="増やす">＋</button>
+      <td style="text-align:center;">${p.price}円</td>
+      <td style="text-align:center;">
+        <div class="qty-spinner" style="margin:0 auto;">
+          <button class="qty-btn minus-btn" data-id="${p.id}">－</button>
+          <input type="number" class="qty-input count-input" data-id="${p.id}"
+            value="${count}" min="0" inputmode="numeric" />
+          <button class="qty-btn plus-btn" data-id="${p.id}">＋</button>
         </div>
       </td>
-      <td class="subtotal-cell" data-id="${p.id}">${subtotal.toLocaleString()}円</td>
+      <td class="subtotal-cell" data-id="${p.id}" style="text-align:right; font-weight:700; padding-right:8px;">
+        ${subtotal.toLocaleString()}円
+      </td>
     </tr>
   `;
 }
@@ -123,87 +129,78 @@ function escapeHtml(str) {
 
 function pushHistory() {
   history.push(JSON.stringify(counts));
-  if (history.length > 20) history.shift(); // 履歴は最大20件
+  if (history.length > 20) history.shift();
 }
 
 function updateCount(container, productId, newValue) {
   const v = Math.max(0, Number(newValue) || 0);
   pushHistory();
   counts[productId] = v;
-  refreshRow(container, productId);
+  // DOM部分更新（再レンダリングせず）
+  const input = container.querySelector(`.count-input[data-id="${productId}"]`);
+  const subtotalCell = container.querySelector(`.subtotal-cell[data-id="${productId}"]`);
+  const product = products.find(p => p.id == productId);
+  if (input) input.value = v;
+  if (subtotalCell && product) {
+    subtotalCell.textContent = (v * product.price).toLocaleString() + '円';
+  }
   refreshTotals(container);
   refreshUndoButton(container);
 }
 
-function refreshRow(container, productId) {
-  const input = container.querySelector(`.count-input[data-id="${productId}"]`);
-  const subtotalCell = container.querySelector(`.subtotal-cell[data-id="${productId}"]`);
-  const product = products.find(p => p.id == productId);
-  if (input) input.value = counts[productId] || 0;
-  if (subtotalCell && product) {
-    subtotalCell.textContent = ((counts[productId] || 0) * product.price).toLocaleString() + '円';
-  }
-}
-
 function refreshTotals(container) {
   const { totalCount, totalPrice } = calcTotals();
-  const totalCountEl = container.querySelector('#totalCount');
-  const totalPriceEl = container.querySelector('#totalPrice');
-  if (totalCountEl) totalCountEl.textContent = `${totalCount}個`;
-  if (totalPriceEl) totalPriceEl.textContent = `${totalPrice.toLocaleString()}円`;
+  const el1 = container.querySelector('#totalCount');
+  const el2 = container.querySelector('#totalPrice');
+  if (el1) el1.textContent = `${totalCount}個`;
+  if (el2) el2.textContent = `${totalPrice.toLocaleString()}円`;
 }
 
 function refreshUndoButton(container) {
-  const undoBtn = container.querySelector('#undoBtn');
-  if (undoBtn) undoBtn.disabled = history.length === 0;
+  const btn = container.querySelector('#undoBtn');
+  if (!btn) return;
+  const hasHistory = history.length > 0;
+  btn.disabled = !hasHistory;
+  btn.className = `btn ${hasHistory ? 'btn-outline' : 'btn-ghost'}`;
+  btn.style.opacity = hasHistory ? '1' : '0.35';
+  btn.style.cursor = hasHistory ? 'pointer' : 'not-allowed';
+  btn.textContent = `↩ 元に戻す${hasHistory ? `（${history.length}）` : ''}`;
 }
 
 function bindEvents(container) {
-  // ＋ボタン
   container.querySelectorAll('.plus-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const id = btn.dataset.id;
-      updateCount(container, id, (counts[id] || 0) + 1);
+      updateCount(container, btn.dataset.id, (counts[btn.dataset.id] || 0) + 1);
     });
   });
 
-  // －ボタン
   container.querySelectorAll('.minus-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const id = btn.dataset.id;
-      updateCount(container, id, (counts[id] || 0) - 1);
+      updateCount(container, btn.dataset.id, (counts[btn.dataset.id] || 0) - 1);
     });
   });
 
-  // 直接入力
   container.querySelectorAll('.count-input').forEach(input => {
     input.addEventListener('change', () => {
-      const id = input.dataset.id;
-      updateCount(container, id, input.value);
+      updateCount(container, input.dataset.id, input.value);
     });
   });
 
-  // 元に戻す
-  const undoBtn = container.querySelector('#undoBtn');
-  if (undoBtn) {
-    undoBtn.addEventListener('click', () => {
-      if (history.length === 0) return;
-      counts = JSON.parse(history.pop());
-      render(container);
-    });
-  }
+  container.querySelector('#undoBtn').addEventListener('click', () => {
+    if (history.length === 0) return;
+    counts = JSON.parse(history.pop());
+    render(container);
+  });
 
-  // クリア
   container.querySelector('#clearBtn').addEventListener('click', async () => {
     if (!confirm('入力内容をクリアしますか？（自動保存されます）')) return;
-    await saveData(); // クリア前に自動保存
+    await saveData();
     pushHistory();
     products.forEach(p => { counts[p.id] = 0; });
     render(container);
     showToast('✅ クリアしました（自動保存済み）');
   });
 
-  // 保存
   container.querySelector('#saveBtn').addEventListener('click', async () => {
     await saveData();
     showToast('✅ 保存しました');
@@ -227,6 +224,4 @@ async function saveData() {
     totalPrice,
     updatedAt: new Date().toISOString(),
   });
-
-  savedSnapshot = JSON.stringify(counts);
 }

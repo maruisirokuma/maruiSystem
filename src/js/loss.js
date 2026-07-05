@@ -1,21 +1,25 @@
 /**
  * loss.js - ロス計算画面
- * 商品ごとの割引(20%/30%/50%)とロス個数を入力し、各種合計を計算する
+ * 修正：
+ *  - Enterキーで次セルへフォーカス移動
+ *  - 合計ラベル「総20%」→「20%割引個数」
+ *  - 総ロス金額を強調しない（同サイズ）
+ *  - 割引セクションとロスセクションを線で分割
  */
 
 import { dbGet, dbPut, STORES, getActiveProducts } from './db.js';
 import { showToast, todayStr } from './app.js';
 
 let products = [];
-let rows = {}; // productId -> { d20, d30, d50, lossCount }
+let rows = {};
 
 export async function initLoss(container) {
   products = await getActiveProducts();
-
   const today = todayStr();
   const existing = await dbGet(STORES.LOSS, today);
 
   rows = {};
+  products.forEach(p => { rows[p.id] = { d20: 0, d30: 0, d50: 0, lossCount: 0 }; });
   if (existing) {
     existing.items.forEach(item => {
       rows[item.productId] = {
@@ -26,16 +30,11 @@ export async function initLoss(container) {
       };
     });
   }
-  products.forEach(p => {
-    if (!rows[p.id]) rows[p.id] = { d20: 0, d30: 0, d50: 0, lossCount: 0 };
-  });
 
   render(container);
 }
 
-/** 1商品分の割引金額・ロス金額を計算 */
 function calcItem(p, r) {
-  // 割引金額 = 各割引率の個数 × 価格 × 割引率
   const discountPrice =
     Math.round(r.d20 * p.price * 0.20) +
     Math.round(r.d30 * p.price * 0.30) +
@@ -46,21 +45,15 @@ function calcItem(p, r) {
 
 function calcTotals() {
   let total20 = 0, total30 = 0, total50 = 0;
-  let totalDiscount = 0;
-  let totalLossCount = 0;
-  let totalLossPrice = 0;
-
+  let totalDiscount = 0, totalLossCount = 0, totalLossPrice = 0;
   products.forEach(p => {
     const r = rows[p.id];
     const { discountPrice, lossPrice } = calcItem(p, r);
-    total20 += r.d20;
-    total30 += r.d30;
-    total50 += r.d50;
+    total20 += r.d20; total30 += r.d30; total50 += r.d50;
     totalDiscount += discountPrice;
     totalLossCount += r.lossCount;
     totalLossPrice += lossPrice;
   });
-
   return { total20, total30, total50, totalDiscount, totalLossCount, totalLossPrice };
 }
 
@@ -77,10 +70,19 @@ function render(container) {
       ` : `
         <div class="card">
           <div class="data-table-wrap">
-            <table class="data-table">
+            <table class="data-table loss-table">
+              <colgroup>
+                <col style="width:24%">
+                <col style="width:9%">
+                <col style="width:9%">
+                <col style="width:9%">
+                <col style="width:15%">
+                <col style="width:9%">
+                <col style="width:15%">
+              </colgroup>
               <thead>
                 <tr>
-                  <th>品名</th>
+                  <th style="text-align:left;">品名</th>
                   <th>20%</th>
                   <th>30%</th>
                   <th>50%</th>
@@ -89,20 +91,46 @@ function render(container) {
                   <th>ロス金額</th>
                 </tr>
               </thead>
-              <tbody id="lossBody">
-                ${products.map(p => rowHtml(p)).join('')}
+              <tbody>
+                ${products.map((p, i) => rowHtml(p, i)).join('')}
               </tbody>
             </table>
           </div>
         </div>
 
+        <!-- 割引セクション -->
         <div class="summary-bar">
-          <div class="summary-row"><span>総20%</span><span class="summary-value" id="total20">${t.total20}個</span></div>
-          <div class="summary-row"><span>総30%</span><span class="summary-value" id="total30">${t.total30}個</span></div>
-          <div class="summary-row"><span>総50%</span><span class="summary-value" id="total50">${t.total50}個</span></div>
-          <div class="summary-row"><span>総割引金額</span><span class="summary-value" id="totalDiscount">${t.totalDiscount.toLocaleString()}円</span></div>
-          <div class="summary-row"><span>総ロス個数</span><span class="summary-value" id="totalLossCount">${t.totalLossCount}個</span></div>
-          <div class="summary-row total"><span>総ロス金額</span><span class="summary-value" id="totalLossPrice">${t.totalLossPrice.toLocaleString()}円</span></div>
+          <div class="summary-section-label">── 割引 ──</div>
+          <div class="summary-row">
+            <span>20%割引個数</span>
+            <span class="summary-value" id="total20">${t.total20}個</span>
+          </div>
+          <div class="summary-row">
+            <span>30%割引個数</span>
+            <span class="summary-value" id="total30">${t.total30}個</span>
+          </div>
+          <div class="summary-row">
+            <span>50%割引個数</span>
+            <span class="summary-value" id="total50">${t.total50}個</span>
+          </div>
+          <div class="summary-row">
+            <span>総割引金額</span>
+            <span class="summary-value" id="totalDiscount">${t.totalDiscount.toLocaleString()}円</span>
+          </div>
+
+          <!-- 区切り線 -->
+          <div class="summary-divider"></div>
+
+          <!-- ロスセクション -->
+          <div class="summary-section-label">── ロス ──</div>
+          <div class="summary-row">
+            <span>ロス個数</span>
+            <span class="summary-value" id="totalLossCount">${t.totalLossCount}個</span>
+          </div>
+          <div class="summary-row">
+            <span>ロス金額</span>
+            <span class="summary-value" id="totalLossPrice">${t.totalLossPrice.toLocaleString()}円</span>
+          </div>
         </div>
 
         <button class="btn btn-primary btn-full" id="saveBtn">保存</button>
@@ -113,18 +141,36 @@ function render(container) {
   if (products.length > 0) bindEvents(container);
 }
 
-function rowHtml(p) {
+function cellInput(field, productId, value, tabIndex) {
+  return `<input type="number"
+    class="loss-cell-input"
+    data-field="${field}"
+    data-id="${productId}"
+    value="${value}"
+    min="0"
+    inputmode="numeric"
+    tabindex="${tabIndex}"
+    style="width:100%; height:36px; border:1.5px solid var(--border);
+           border-radius:4px; text-align:center; font-size:15px;
+           font-weight:600; font-family:inherit; background:#fff;
+           -moz-appearance:textfield;"
+  />`;
+}
+
+function rowHtml(p, rowIndex) {
   const r = rows[p.id];
   const { discountPrice, lossPrice } = calcItem(p, r);
+  // tabindex: 行×4 + 列(0〜3)  → Enterで順に移動
+  const base = rowIndex * 4;
   return `
     <tr data-id="${p.id}">
-      <td>${escapeHtml(p.name)}</td>
-      <td><input type="number" class="timeline-input cell-input" style="width:48px; height:36px; font-size:14px;" data-field="d20" data-id="${p.id}" value="${r.d20}" min="0" inputmode="numeric" /></td>
-      <td><input type="number" class="timeline-input cell-input" style="width:48px; height:36px; font-size:14px;" data-field="d30" data-id="${p.id}" value="${r.d30}" min="0" inputmode="numeric" /></td>
-      <td><input type="number" class="timeline-input cell-input" style="width:48px; height:36px; font-size:14px;" data-field="d50" data-id="${p.id}" value="${r.d50}" min="0" inputmode="numeric" /></td>
-      <td class="discount-price-cell" data-id="${p.id}">${discountPrice.toLocaleString()}円</td>
-      <td><input type="number" class="timeline-input cell-input" style="width:48px; height:36px; font-size:14px;" data-field="lossCount" data-id="${p.id}" value="${r.lossCount}" min="0" inputmode="numeric" /></td>
-      <td class="loss-price-cell" data-id="${p.id}">${lossPrice.toLocaleString()}円</td>
+      <td style="font-size:13px; font-weight:500;">${escapeHtml(p.name)}</td>
+      <td>${cellInput('d20',       p.id, r.d20,       base+1)}</td>
+      <td>${cellInput('d30',       p.id, r.d30,       base+2)}</td>
+      <td>${cellInput('d50',       p.id, r.d50,       base+3)}</td>
+      <td class="discount-price-cell" data-id="${p.id}" style="text-align:right; font-size:13px;">${discountPrice.toLocaleString()}円</td>
+      <td>${cellInput('lossCount', p.id, r.lossCount, base+4)}</td>
+      <td class="loss-price-cell" data-id="${p.id}" style="text-align:right; font-size:13px;">${lossPrice.toLocaleString()}円</td>
     </tr>
   `;
 }
@@ -136,16 +182,39 @@ function escapeHtml(str) {
 }
 
 function bindEvents(container) {
-  container.querySelectorAll('.cell-input').forEach(input => {
-    input.addEventListener('change', () => {
+  // 全入力セルをフラットなリストで取得（tabindex順）
+  const allInputs = [...container.querySelectorAll('.loss-cell-input')]
+    .sort((a, b) => Number(a.tabIndex) - Number(b.tabIndex));
+
+  allInputs.forEach((input, idx) => {
+    input.addEventListener('input', () => {
       const id = input.dataset.id;
       const field = input.dataset.field;
-      const value = Math.max(0, Number(input.value) || 0);
-      rows[id][field] = value;
-      input.value = value;
+      rows[id][field] = Math.max(0, Number(input.value) || 0);
       refreshRow(container, id);
       refreshTotals(container);
     });
+
+    input.addEventListener('change', () => {
+      const v = Math.max(0, Number(input.value) || 0);
+      input.value = v;
+      rows[input.dataset.id][input.dataset.field] = v;
+    });
+
+    // Enter / Tab で次のセルへ
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const next = allInputs[idx + 1];
+        if (next) {
+          next.focus();
+          next.select();
+        }
+      }
+    });
+
+    // フォーカス時に全選択（入力しやすく）
+    input.addEventListener('focus', () => input.select());
   });
 
   container.querySelector('#saveBtn').addEventListener('click', async () => {
@@ -158,18 +227,21 @@ function refreshRow(container, productId) {
   const p = products.find(p => p.id == productId);
   const r = rows[productId];
   const { discountPrice, lossPrice } = calcItem(p, r);
-  container.querySelector(`.discount-price-cell[data-id="${productId}"]`).textContent = discountPrice.toLocaleString() + '円';
-  container.querySelector(`.loss-price-cell[data-id="${productId}"]`).textContent = lossPrice.toLocaleString() + '円';
+  const dc = container.querySelector(`.discount-price-cell[data-id="${productId}"]`);
+  const lc = container.querySelector(`.loss-price-cell[data-id="${productId}"]`);
+  if (dc) dc.textContent = discountPrice.toLocaleString() + '円';
+  if (lc) lc.textContent = lossPrice.toLocaleString() + '円';
 }
 
 function refreshTotals(container) {
   const t = calcTotals();
-  container.querySelector('#total20').textContent = `${t.total20}個`;
-  container.querySelector('#total30').textContent = `${t.total30}個`;
-  container.querySelector('#total50').textContent = `${t.total50}個`;
-  container.querySelector('#totalDiscount').textContent = `${t.totalDiscount.toLocaleString()}円`;
-  container.querySelector('#totalLossCount').textContent = `${t.totalLossCount}個`;
-  container.querySelector('#totalLossPrice').textContent = `${t.totalLossPrice.toLocaleString()}円`;
+  const set = (id, val) => { const el = container.querySelector(id); if (el) el.textContent = val; };
+  set('#total20',        `${t.total20}個`);
+  set('#total30',        `${t.total30}個`);
+  set('#total50',        `${t.total50}個`);
+  set('#totalDiscount',  `${t.totalDiscount.toLocaleString()}円`);
+  set('#totalLossCount', `${t.totalLossCount}個`);
+  set('#totalLossPrice', `${t.totalLossPrice.toLocaleString()}円`);
 }
 
 async function saveData() {
@@ -184,21 +256,14 @@ async function saveData() {
       const { discountPrice, lossPrice } = calcItem(p, r);
       return {
         productId: p.id,
-        discount20: r.d20,
-        discount30: r.d30,
-        discount50: r.d50,
-        discountPrice,
-        lossCount: r.lossCount,
-        lossPrice,
+        discount20: r.d20, discount30: r.d30, discount50: r.d50,
+        discountPrice, lossCount: r.lossCount, lossPrice,
       };
     });
 
   await dbPut(STORES.LOSS, {
-    date: todayStr(),
-    items,
-    total20: t.total20,
-    total30: t.total30,
-    total50: t.total50,
+    date: todayStr(), items,
+    total20: t.total20, total30: t.total30, total50: t.total50,
     totalDiscount: t.totalDiscount,
     totalLossCount: t.totalLossCount,
     totalLossPrice: t.totalLossPrice,
