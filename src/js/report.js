@@ -85,7 +85,7 @@ function render(container) {
       <div class="section-title">プレビュー</div>
       <div class="report-preview" id="reportPreview">${escapeHtml(buildReportText())}</div>
 
-      <button class="btn btn-accent btn-full mt-md" id="copyBtn">📋 LINEにコピー</button>
+      <button class="btn btn-accent btn-full mt-md" id="copyBtn">📋 コピー</button>
     </div>
   `;
 
