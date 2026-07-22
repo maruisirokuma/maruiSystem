@@ -1,263 +1,110 @@
-/**
- * products.js - 商品管理画面
- * 商品の追加・編集・販売終了・並び替えを行う
- */
+/** products.js - 商品管理 */
+import { dbPut, dbGetAll, STORES, getAllProducts } from './db.js';
+import { showToast, escHtml } from './app.js';
 
-import { dbPut, dbDelete, getAllProducts } from './db.js';
-import { showToast } from './app.js';
-
-let products = [];
-let draggingId = null;
+let products=[];
 
 export async function initProducts(container) {
-  products = await getAllProducts();
-  render(container);
+  products=await getAllProducts(); render(container);
 }
 
-function render(container) {
-  const activeList = products.filter(p => p.isActive);
-  const inactiveList = products.filter(p => !p.isActive);
-
-  container.innerHTML = `
-    <div class="page page-enter">
+function render(container){
+  const active=products.filter(p=>p.isActive), inactive=products.filter(p=>!p.isActive);
+  container.innerHTML=`
+    <div class="page">
       <div class="card">
-        <div class="card-header">
-          <span class="card-header-icon">🛒</span>商品一覧
-        </div>
+        <div class="card-header"><span class="card-header-icon">🛒</span>商品一覧</div>
         <div class="card-body" style="padding:0;">
-          ${activeList.length === 0 ? emptyState() : activeList.map(p => productRow(p, true)).join('')}
+          ${active.length===0?'<div class="empty-state"><div class="empty-text">商品がありません</div></div>':active.map(p=>row(p,true)).join('')}
         </div>
       </div>
-
-      <button class="btn btn-primary btn-full mb-md" id="addProductBtn">
-        ＋ 商品を追加
-      </button>
-
-      ${inactiveList.length > 0 ? `
-        <div class="section-title">販売終了商品</div>
-        <div class="card">
-          <div class="card-body" style="padding:0;">
-            ${inactiveList.map(p => productRow(p, false)).join('')}
-          </div>
-        </div>
-      ` : ''}
+      <button class="btn btn-primary btn-full mb-md" id="addBtn">＋ 商品を追加</button>
+      ${inactive.length?`<div class="section-title">販売終了</div><div class="card"><div class="card-body" style="padding:0;">${inactive.map(p=>row(p,false)).join('')}</div></div>`:''}
     </div>
 
-    <!-- 商品編集モーダル -->
-    <div class="modal-overlay d-none" id="productModalOverlay">
+    <div class="modal-overlay d-none" id="modalOverlay">
       <div class="modal">
-        <div class="modal-title" id="modalTitle">商品を追加</div>
+        <div class="modal-title" id="modalTitle">商品を追加<button class="modal-close" id="modalClose">✕</button></div>
         <form id="productForm">
-          <input type="hidden" id="productId" />
-          <div class="form-group">
-            <label class="form-label">商品名</label>
-            <input type="text" class="form-input" id="productName" required />
-          </div>
-          <div class="form-group">
-            <label class="form-label">カテゴリ</label>
-            <input type="text" class="form-input" id="productCategory" placeholder="例：サンドイッチ" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">税込価格（円）</label>
-            <input type="number" class="form-input" id="productPrice" inputmode="numeric" required min="0" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">原価（円）</label>
-            <input type="number" class="form-input" id="productCost" inputmode="numeric" required min="0" />
-          </div>
-          <div class="btn-group mt-md">
-            <button type="button" class="btn btn-ghost" id="cancelModalBtn">キャンセル</button>
-            <button type="submit" class="btn btn-primary">保存</button>
-          </div>
+          <input type="hidden" id="pid"/>
+          <div class="form-group"><label class="form-label">商品名</label><input type="text" class="form-input" id="pname" required/></div>
+          <div class="form-group"><label class="form-label">カテゴリ</label><input type="text" class="form-input" id="pcat" placeholder="例：フルーツ系"/></div>
+          <div class="form-group"><label class="form-label">税込価格（円）</label><input type="number" class="form-input" id="pprice" inputmode="numeric" required min="0"/></div>
+          <div class="form-group"><label class="form-label">原価（円）</label><input type="number" class="form-input" id="pcost" inputmode="numeric" required min="0"/></div>
+          <div class="btn-group mt-md"><button type="button" class="btn btn-ghost" id="cancelBtn">キャンセル</button><button type="submit" class="btn btn-primary">保存</button></div>
         </form>
       </div>
+    </div>`;
+  bind(container);
+}
+
+function row(p,isActive){
+  return `<div class="product-item ${isActive?'':'product-inactive'}" data-id="${p.id}">
+    <div class="product-info">
+      <div class="product-name">${escHtml(p.name)}</div>
+      <div class="product-meta">${p.category?escHtml(p.category)+' / ':''}${p.price}円（原価${p.cost}円）</div>
     </div>
-  `;
-
-  bindEvents(container);
-}
-
-function emptyState() {
-  return `
-    <div class="empty-state">
-      <div class="empty-state-icon">🥪</div>
-      <div class="empty-state-text">商品が登録されていません</div>
+    <div class="product-actions">
+      <button class="btn btn-sm btn-outline edit-btn" data-id="${p.id}">編集</button>
+      ${isActive?`<button class="btn btn-sm btn-danger end-btn" data-id="${p.id}">終了</button>`
+               :`<button class="btn btn-sm btn-primary restore-btn" data-id="${p.id}">復活</button>`}
     </div>
-  `;
+  </div>`;
 }
 
-function productRow(p, isActive) {
-  return `
-    <div class="product-item ${isActive ? '' : 'product-inactive'}" draggable="${isActive}" data-id="${p.id}">
-      ${isActive ? '<span style="cursor:grab; color:var(--text-hint); font-size:20px;">⠿</span>' : ''}
-      <div class="product-info">
-        <div class="product-name">${escapeHtml(p.name)}</div>
-        <div class="product-meta">
-          ${p.category ? escapeHtml(p.category) + ' / ' : ''}${p.price}円（原価 ${p.cost}円）
-        </div>
-      </div>
-      <div class="product-actions">
-        <button class="btn btn-sm btn-outline edit-btn" data-id="${p.id}">編集</button>
-        ${isActive
-          ? `<button class="btn btn-sm btn-danger end-btn" data-id="${p.id}">終了</button>`
-          : `<button class="btn btn-sm btn-primary restore-btn" data-id="${p.id}">復活</button>`}
-      </div>
-    </div>
-  `;
-}
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
-
-function bindEvents(container) {
-  const overlay = container.querySelector('#productModalOverlay');
-  const form = container.querySelector('#productForm');
-  const modalTitle = container.querySelector('#modalTitle');
-
-  // 追加ボタン
-  container.querySelector('#addProductBtn').addEventListener('click', () => {
-    openModal(null);
-  });
-
-  // キャンセル
-  container.querySelector('#cancelModalBtn').addEventListener('click', closeModal);
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) closeModal();
-  });
-
-  // 編集ボタン
-  container.querySelectorAll('.edit-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = Number(btn.dataset.id);
-      const product = products.find(p => p.id === id);
-      openModal(product);
-    });
-  });
-
-  // 販売終了ボタン
-  container.querySelectorAll('.end-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = Number(btn.dataset.id);
-      if (!confirm('この商品を販売終了にしますか？')) return;
-      const product = products.find(p => p.id === id);
-      product.isActive = false;
-      await dbPut('ProductMaster', product);
-      showToast('✅ 販売終了にしました');
-      products = await getAllProducts();
-      render(container.closest('.main-content') || container.parentElement);
-    });
-  });
-
-  // 復活ボタン
-  container.querySelectorAll('.restore-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = Number(btn.dataset.id);
-      const product = products.find(p => p.id === id);
-      product.isActive = true;
-      await dbPut('ProductMaster', product);
-      showToast('✅ 販売を再開しました');
-      products = await getAllProducts();
-      render(container.closest('.main-content') || container.parentElement);
-    });
-  });
-
-  // フォーム送信
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const idVal = container.querySelector('#productId').value;
-    const name = container.querySelector('#productName').value.trim();
-    const category = container.querySelector('#productCategory').value.trim();
-    const price = Number(container.querySelector('#productPrice').value);
-    const cost = Number(container.querySelector('#productCost').value);
-
-    if (!name) {
-      showToast('商品名を入力してください');
-      return;
-    }
-
-    if (idVal) {
-      // 編集
-      const product = products.find(p => p.id === Number(idVal));
-      product.name = name;
-      product.category = category;
-      product.price = price;
-      product.cost = cost;
-      await dbPut('ProductMaster', product);
-      showToast('✅ 商品を更新しました');
-    } else {
-      // 新規追加
-      const maxOrder = products.reduce((max, p) => Math.max(max, p.sortOrder ?? 0), 0);
-      await dbPut('ProductMaster', {
-        name, category, price, cost,
-        sortOrder: maxOrder + 1,
-        isActive: true,
-      });
-      showToast('✅ 商品を追加しました');
-    }
-
-    closeModal();
-    products = await getAllProducts();
-    render(container.closest('.main-content') || container.parentElement);
-  });
-
-  // 並び替え（ドラッグ＆ドロップ）
-  setupDragSort(container);
-
-  function openModal(product) {
-    modalTitle.textContent = product ? '商品を編集' : '商品を追加';
-    container.querySelector('#productId').value = product ? product.id : '';
-    container.querySelector('#productName').value = product ? product.name : '';
-    container.querySelector('#productCategory').value = product ? (product.category || '') : '';
-    container.querySelector('#productPrice').value = product ? product.price : '';
-    container.querySelector('#productCost').value = product ? product.cost : '';
+function bind(container){
+  const overlay=container.querySelector('#modalOverlay');
+  const open=(p)=>{
+    container.querySelector('#modalTitle').childNodes[0].textContent=p?'商品を編集':'商品を追加';
+    container.querySelector('#pid').value=p?p.id:'';
+    container.querySelector('#pname').value=p?p.name:'';
+    container.querySelector('#pcat').value=p?p.category||'':'';
+    container.querySelector('#pprice').value=p?p.price:'';
+    container.querySelector('#pcost').value=p?p.cost:'';
     overlay.classList.remove('d-none');
-  }
+  };
+  const close=()=>overlay.classList.add('d-none');
 
-  function closeModal() {
-    overlay.classList.add('d-none');
-    form.reset();
-  }
-}
+  container.querySelector('#addBtn').addEventListener('click',()=>open(null));
+  container.querySelector('#modalClose').addEventListener('click',close);
+  container.querySelector('#cancelBtn').addEventListener('click',close);
+  overlay.addEventListener('click',e=>{ if(e.target===overlay) close(); });
 
-function setupDragSort(container) {
-  const items = container.querySelectorAll('.product-item[draggable="true"]');
-
-  items.forEach(item => {
-    item.addEventListener('dragstart', () => {
-      draggingId = item.dataset.id;
-      item.style.opacity = '0.5';
-    });
-
-    item.addEventListener('dragend', async () => {
-      item.style.opacity = '1';
-      await persistOrder(container);
-    });
-
-    item.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      const dragging = container.querySelector(`[data-id="${draggingId}"]`);
-      if (!dragging || dragging === item) return;
-      const rect = item.getBoundingClientRect();
-      const next = (e.clientY - rect.top) / rect.height > 0.5;
-      item.parentNode.insertBefore(dragging, next ? item.nextSibling : item);
-    });
-
-    // タッチデバイス向け簡易対応（長押し不要、ボタンで上下移動も可とする代替）
+  container.querySelectorAll('.edit-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>open(products.find(p=>p.id==btn.dataset.id)));
   });
-}
+  container.querySelectorAll('.end-btn').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      if(!confirm('販売終了にしますか？')) return;
+      const p=products.find(p=>p.id==btn.dataset.id); p.isActive=false;
+      await dbPut(STORES.PRODUCTS,p); showToast('✅ 販売終了にしました');
+      products=await getAllProducts(); render(container);
+    });
+  });
+  container.querySelectorAll('.restore-btn').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      const p=products.find(p=>p.id==btn.dataset.id); p.isActive=true;
+      await dbPut(STORES.PRODUCTS,p); showToast('✅ 販売を再開しました');
+      products=await getAllProducts(); render(container);
+    });
+  });
 
-async function persistOrder(container) {
-  const items = [...container.querySelectorAll('.product-item[draggable="true"]')];
-  for (let i = 0; i < items.length; i++) {
-    const id = Number(items[i].dataset.id);
-    const product = products.find(p => p.id === id);
-    if (product && product.sortOrder !== i + 1) {
-      product.sortOrder = i + 1;
-      await dbPut('ProductMaster', product);
+  container.querySelector('#productForm').addEventListener('submit',async e=>{
+    e.preventDefault();
+    const id=container.querySelector('#pid').value;
+    const name=container.querySelector('#pname').value.trim();
+    const cat=container.querySelector('#pcat').value.trim();
+    const price=Number(container.querySelector('#pprice').value);
+    const cost=Number(container.querySelector('#pcost').value);
+    if(!name){ showToast('商品名を入力してください'); return; }
+    if(id){
+      const p=products.find(p=>p.id==id); Object.assign(p,{name,category:cat,price,cost});
+      await dbPut(STORES.PRODUCTS,p); showToast('✅ 更新しました');
+    } else {
+      const maxOrder=products.reduce((m,p)=>Math.max(m,p.sortOrder||0),0);
+      await dbPut(STORES.PRODUCTS,{name,category:cat,price,cost,sortOrder:maxOrder+1,isActive:true});
+      showToast('✅ 追加しました');
     }
-  }
-  showToast('✅ 並び順を更新しました');
+    close(); products=await getAllProducts(); render(container);
+  });
 }
