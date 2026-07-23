@@ -1,5 +1,5 @@
-const CACHE='sandwich-v2';
-const PRECACHE=['./','./index.html','./css/style.css','./js/app.js','./js/db.js','./js/predict.js','./js/dashboard.js','./js/manufacture.js','./js/loss.js','./js/report.js','./js/discount.js','./js/products.js','./js/settings.js','./manifest.json','https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'];
+const CACHE='sandwich-v3';
+const PRECACHE=['./','./index.html','./css/style.css','./js/bundle.js','./js/app.js','./js/db.js','./js/predict.js','./js/dashboard.js','./js/manufacture.js','./js/loss.js','./js/report.js','./js/discount.js','./js/products.js','./js/settings.js','./js/manifest.json','https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'];
 self.addEventListener('install',e=>{ e.waitUntil(caches.open(CACHE).then(c=>c.addAll(PRECACHE)).then(()=>self.skipWaiting())); });
 self.addEventListener('activate',e=>{ e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())); });
 self.addEventListener('fetch',e=>{ if(e.request.url.startsWith('chrome-extension')) return; e.respondWith(caches.match(e.request).then(cached=>{ if(cached) return cached; return fetch(e.request).then(res=>{ if(!res||res.status!==200||res.type==='opaque') return res; const clone=res.clone(); caches.open(CACHE).then(c=>c.put(e.request,clone)); return res; }).catch(()=>caches.match('./index.html')); })); });
