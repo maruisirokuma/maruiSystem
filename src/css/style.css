@@ -1,4 +1,3 @@
-cat > /home/claude/project/src/css/style.css << 'CSSEOF'
 /* =============================================
    style.css  v3.0 - サンドイッチ販売支援
    テーマ：青・水色 / スマホ縦向き専用
@@ -454,6 +453,3 @@ button:disabled { opacity:.35; cursor:not-allowed !important; }
   .main-content { padding-top:calc(var(--header-h) + env(safe-area-inset-top)); }
   .drawer       { padding-top:env(safe-area-inset-top); }
 }
-CSSEOF
-echo "✅ style.css 完成"
-wc -l /home/claude/project/src/css/style.css
