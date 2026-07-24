@@ -15,7 +15,7 @@ const STORES = {
   DISCOUNT:  'DiscountAnalysisRecord',
 };
 
-let _db = _db_null;
+let _db = null;
 
 function openDB() {
   if (_db) return Promise.resolve(_db);
@@ -43,7 +43,7 @@ const tx = (store, mode, fn) =>
     const t = db.transaction(store, mode);
     const s = t.objectStore(store);
     const req = fn(s);
-    req.onsuccess = () => resolve(req.result ?? _db_null);
+    req.onsuccess = () => resolve(req.result ?? null);
     req.onerror   = () => reject(req.error);
   }));
 
@@ -887,7 +887,7 @@ function _loss_fmtJP(d){ const [,m,dd]=d.split('-'); return `${Number(m)}月${Nu
 
 /* ========== report.js ========== */
 /** report.js - 日報（自動保存・コピーのみ） */
-let data={sales:0,customers:0,body:'',name:''}, timer=_report_null;
+let data={sales:0,customers:0,body:'',name:''}, timer=null;
 
 async function initReport(container) {
   const existing=await dbGet(STORES.REPORT,todayStr());
@@ -964,10 +964,10 @@ async function autoSave(){
  * タブ1: 割引分析（在庫入力・グラフ・完売予測・割引推奨）
  * タブ2: 追加製造支援（時刻別推奨・おすすめ商品・記録）
  */
-let record=_discount_null, idealStock={}, weekdayAvg={}, yesterdayStock={};
+let record=null, idealStock={}, weekdayAvg={}, yesterdayStock={};
 let _discount_products=[], mfgRecords=[], lossRecords=[];
 let _discount_currentTab='analysis';
-let chartInst=_discount_null;
+let chartInst=null;
 const SLOTS=generateTimeSlots();
 
 async function initDiscount(container) {
@@ -987,14 +987,14 @@ async function initDiscount(container) {
 }
 
 /* ============================================================ 共通 */
-function getStock(t){ const l=record.inventoryLogs.find(l=>l.time===t); return l?l.stock:_discount_null; }
+function getStock(t){ const l=record.inventoryLogs.find(l=>l.time===t); return l?l.stock:null; }
 function setStock(t,v){
   const idx=record.inventoryLogs.findIndex(l=>l.time===t);
-  if(v===''||v==_discount_null){ if(idx>=0) record.inventoryLogs.splice(idx,1); return; }
+  if(v===''||v==null){ if(idx>=0) record.inventoryLogs.splice(idx,1); return; }
   if(idx>=0) record.inventoryLogs[idx].stock=Number(v);
   else record.inventoryLogs.push({time:t,stock:Number(v)});
 }
-function latestLog(){ return [...record.inventoryLogs].sort((a,b)=>b.time.localeCompare(a.time))[0]||_discount_null; }
+function latestLog(){ return [...record.inventoryLogs].sort((a,b)=>b.time.localeCompare(a.time))[0]||null; }
 function _discount_fmtJP(d){ const[,m,dd]=d.split('-'); return `${Number(m)}月${Number(dd)}日`; }
 
 /* ============================================================ メインレンダー */
@@ -1085,15 +1085,15 @@ function renderAnalysisTab(prediction, rec, latest, nearSlot) {
           ${SLOTS.map(t=>{
             const v=getStock(t);
             const ideal=idealStock[t];
-            const diff=v!=_discount_null&&ideal!=_discount_null?v-ideal:_discount_null;
-            const diffColor=diff!=_discount_null?(diff>5?'#C62828':diff<-5?'#1565C0':'inherit'):'inherit';
+            const diff=v!=null&&ideal!=null?v-ideal:null;
+            const diffColor=diff!=null?(diff>5?'#C62828':diff<-5?'#1565C0':'inherit'):'inherit';
             return `<span class="timeline-time">${t}</span>
               <div style="display:flex;align-items:center;gap:6px;">
-                <input type="number" class="timeline-input stock-inp ${v!=_discount_null?'has-value':''}" data-t="${t}"
+                <input type="number" class="timeline-input stock-inp ${v!=null?'has-value':''}" data-t="${t}"
                   value="${v??''}" placeholder="個" inputmode="numeric" min="0"/>
                 <span style="font-size:11px;color:${diffColor};min-width:40px;">
-                  ${ideal!=_discount_null?`理想:${ideal}個`:''}
-                  ${diff!=_discount_null?`(${diff>0?'+':''}${diff})` : ''}
+                  ${ideal!=null?`理想:${ideal}個`:''}
+                  ${diff!=null?`(${diff>0?'+':''}${diff})` : ''}
                 </span>
               </div>`;
           }).join('')}
@@ -1120,7 +1120,7 @@ function renderAnalysisTab(prediction, rec, latest, nearSlot) {
 /* ============================================================ 追加製造支援タブ */
 function renderManufactureTab(wd, nowT) {
   const latest=latestLog();
-  const currentStock=latest?latest.stock:_discount_null;
+  const currentStock=latest?latest.stock:null;
   const mfgRec=getManufactureRecommendation(currentStock??0, wd, nowT);
   const prodRec=getProductRecommendations(mfgRecords, lossRecords, _discount_products, wd);
 
@@ -1133,7 +1133,7 @@ function renderManufactureTab(wd, nowT) {
       <div class="stat-card">
         <div class="stat-icon">📦</div>
         <div class="stat-label">現在在庫</div>
-        <div class="stat-value">${currentStock??'－'}<span class="stat-unit">${currentStock!=_discount_null?'個':''}</span></div>
+        <div class="stat-value">${currentStock??'－'}<span class="stat-unit">${currentStock!=null?'個':''}</span></div>
       </div>
       <div class="stat-card">
         <div class="stat-icon">🎯</div>
@@ -1291,12 +1291,12 @@ function _discount_bindEvents(container) {
 function renderChart(container) {
   const canvas=container.querySelector('#stockChart');
   if(!canvas||typeof Chart==='undefined') return;
-  if(chartInst){ chartInst.destroy(); chartInst=_discount_null; }
+  if(chartInst){ chartInst.destroy(); chartInst=null; }
 
   const current  = SLOTS.map(t=>getStock(t));
-  const ideal    = SLOTS.map(t=>idealStock[t]??_discount_null);
-  const wdAvg    = SLOTS.map(t=>weekdayAvg[t]??_discount_null);
-  const yesterday= SLOTS.map(t=>yesterdayStock[t]??_discount_null);
+  const ideal    = SLOTS.map(t=>idealStock[t]??null);
+  const wdAvg    = SLOTS.map(t=>weekdayAvg[t]??null);
+  const yesterday= SLOTS.map(t=>yesterdayStock[t]??null);
 
   // 完売予測線
   const pred=predictSoldOut(record.inventoryLogs,idealStock);
@@ -1329,10 +1329,10 @@ function renderChart(container) {
 
 function buildPredLine(pred) {
   const sorted=[...record.inventoryLogs].sort((a,b)=>a.time.localeCompare(b.time));
-  if(!sorted.length||!pred.predictedTime) return SLOTS.map(()=>_discount_null);
+  if(!sorted.length||!pred.predictedTime) return SLOTS.map(()=>null);
   const last=sorted[sorted.length-1];
   return SLOTS.map(t=>{
-    if(t<last.time) return _discount_null;
+    if(t<last.time) return null;
     if(toMin(t)>=toMin(pred.predictedTime)) return 0;
     const total=toMin(pred.predictedTime)-toMin(last.time);
     const elapsed=toMin(t)-toMin(last.time);
