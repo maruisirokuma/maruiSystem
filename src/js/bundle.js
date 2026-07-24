@@ -15,7 +15,7 @@ const STORES = {
   DISCOUNT:  'DiscountAnalysisRecord',
 };
 
-let _db = null;
+let _db = _db_null;
 
 function openDB() {
   if (_db) return Promise.resolve(_db);
@@ -43,7 +43,7 @@ const tx = (store, mode, fn) =>
     const t = db.transaction(store, mode);
     const s = t.objectStore(store);
     const req = fn(s);
-    req.onsuccess = () => resolve(req.result ?? null);
+    req.onsuccess = () => resolve(req.result ?? _db_null);
     req.onerror   = () => reject(req.error);
   }));
 
@@ -548,27 +548,102 @@ async function _manufacture_showHistory(container) {
   const today=todayStr();
   const past = all.filter(r=>r.date!==today).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,30);
   const listEl = container.querySelector('#histList');
-  if(past.length===0) { listEl.innerHTML='<div class="empty-state"><div class="empty-text">過去データがありません</div></div>'; }
-  else {
+  if(past.length===0) {
+    listEl.innerHTML='<div class="empty-state"><div class="empty-text">過去データがありません</div></div>';
+  } else {
+    // リスト表示
     listEl.innerHTML=past.map(r=>`
       <div class="history-item" data-date="${r.date}">
         <div class="history-date">${fmtDateJP(r.date)}（${r.weekday||getWeekdayStr(r.date)}）</div>
         <div class="history-meta">総製造 ${r.totalCount}個 / ${(r.totalPrice||0).toLocaleString()}円</div>
       </div>`).join('');
+
     listEl.querySelectorAll('.history-item').forEach(el=>{
-      el.addEventListener('click',()=>{
+      el.addEventListener('click', async ()=>{
         const rec=past.find(r=>r.date===el.dataset.date);
         if(!rec) return;
-        pushHistory();
-        _manufacture_products.forEach(p=>{ counts[p.id]=0; });
-        (rec.items||[]).forEach(i=>{ counts[i.productId]=i.count; });
-        container.querySelector('#histModal').classList.add('d-none');
-        _manufacture_render(container);
-        showToast(`✅ ${fmtDateJP(rec.date)}のデータを読み込みました`);
+        // 詳細モーダルを表示
+        await showMfgDetail(container, rec);
       });
     });
   }
   container.querySelector('#histModal').classList.remove('d-none');
+}
+
+async function showMfgDetail(container, rec) {
+  // 既存詳細モーダルを作成
+  let detail = container.querySelector('#histDetailModal');
+  if(!detail) {
+    detail = document.createElement('div');
+    detail.id = 'histDetailModal';
+    detail.className = 'modal-overlay';
+    document.body.appendChild(detail);
+  }
+  const prods = _manufacture_products;
+  const items = (rec.items||[]).filter(i=>i.count>0);
+  const labels = items.map(i=>{ const p=prods.find(p=>p.id===i.productId); return p?p.name:`ID:${i.productId}`; });
+  const data   = items.map(i=>i.count);
+  const colors = ['#1565C0','#1E88E5','#42A5F5','#00ACC1','#26C6DA','#0D47A1','#1976D2','#64B5F6','#4DD0E1','#00838F'];
+
+  detail.innerHTML=`
+    <div class="modal" style="max-height:85dvh;">
+      <div class="modal-title">
+        ${fmtDateJP(rec.date)}（${rec.weekday||getWeekdayStr(rec.date)}）の製造
+        <button class="modal-close" id="detailClose">✕</button>
+      </div>
+      <div style="background:var(--primary-bg);border-radius:var(--r-md);padding:12px;margin-bottom:16px;display:flex;gap:16px;justify-content:center;">
+        <div style="text-align:center;"><div style="font-size:11px;color:var(--text-sub);font-weight:600;">総製造数</div><div style="font-size:22px;font-weight:800;color:var(--primary);">${rec.totalCount}個</div></div>
+        <div style="text-align:center;"><div style="font-size:11px;color:var(--text-sub);font-weight:600;">総額</div><div style="font-size:22px;font-weight:800;color:var(--primary);">${(rec.totalPrice||0).toLocaleString()}円</div></div>
+      </div>
+      <div style="position:relative;height:200px;margin-bottom:16px;"><canvas id="histChart"></canvas></div>
+      <table class="tbl" style="width:100%;">
+        <thead><tr><th>品名</th><th style="text-align:right;">個数</th><th style="text-align:right;">小計</th></tr></thead>
+        <tbody>
+          ${items.map(i=>{ const p=prods.find(p=>p.id===i.productId); return `
+            <tr><td>${p?escHtml(p.name):`ID:${i.productId}`}</td>
+            <td style="text-align:right;font-weight:700;">${i.count}個</td>
+            <td style="text-align:right;">${(i.subtotal||0).toLocaleString()}円</td></tr>`; }).join('')}
+        </tbody>
+      </table>
+      <div class="btn-group" style="margin-top:16px;">
+        <button class="btn btn-ghost" id="detailClose2">閉じる</button>
+        <button class="btn btn-primary" id="loadThisData">このデータを読み込む</button>
+      </div>
+    </div>`;
+
+  detail.classList.remove('d-none');
+
+  // グラフ描画
+  setTimeout(()=>{
+    const canvas=detail.querySelector('#histChart');
+    if(canvas && typeof Chart!=='undefined') {
+      new Chart(canvas.getContext('2d'),{
+        type:'bar',
+        data:{
+          labels,
+          datasets:[{data,backgroundColor:colors,borderRadius:4}]
+        },
+        options:{
+          responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{display:false}},
+          scales:{y:{beginAtZero:true,ticks:{stepSize:1}},x:{ticks:{font:{size:10}}}}
+        }
+      });
+    }
+  },50);
+
+  const close=()=>{ detail.classList.add('d-none'); };
+  detail.querySelector('#detailClose').addEventListener('click', close);
+  detail.querySelector('#detailClose2').addEventListener('click', close);
+  detail.querySelector('#loadThisData').addEventListener('click',()=>{
+    pushHistory();
+    _manufacture_products.forEach(p=>{ counts[p.id]=0; });
+    (rec.items||[]).forEach(i=>{ counts[i.productId]=i.count; });
+    detail.classList.add('d-none');
+    container.querySelector('#histModal').classList.add('d-none');
+    _manufacture_render(container);
+    showToast(`✅ ${fmtDateJP(rec.date)}のデータを読み込みました`);
+  });
 }
 
 function fmtDateJP(d) { const [,m,dd]=d.split('-'); return `${Number(m)}月${Number(dd)}日`; }
@@ -644,22 +719,28 @@ function _loss_render(container) {
 function renderDiscountTab(t) {
   return `
     <div class="card">
-      <div class="tbl-wrap">
-        <table class="tbl loss-tbl" style="table-layout:fixed;">
-          <colgroup><col style="width:28%"><col style="width:24%"><col style="width:24%"><col style="width:24%"></colgroup>
-          <thead><tr><th>品名</th><th>20%</th><th>30%</th><th>50%</th></tr></thead>
-          <tbody>
-            ${_loss_products.map(p=>{
-              const r=rows[p.id];
-              return `<tr data-id="${p.id}">
-                <td>${escHtml(p.name)}</td>
-                <td>${lossSpinner(p.id,'d20',r.d20)}</td>
-                <td>${lossSpinner(p.id,'d30',r.d30)}</td>
-                <td>${lossSpinner(p.id,'d50',r.d50)}</td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table>
+      <div class="card-body" style="padding:0;">
+        ${_loss_products.map(p=>{
+          const r=rows[p.id];
+          const disc=Math.round(r.d20*p.price*.2)+Math.round(r.d30*p.price*.3)+Math.round(r.d50*p.price*.5);
+          return `<div class="disc-product-row" data-id="${p.id}">
+            <div class="disc-product-name">${escHtml(p.name)}<span class="disc-price-badge" data-id="${p.id}">${disc>0?disc.toLocaleString()+'円割引':''}</span></div>
+            <div class="disc-spinner-row">
+              <div class="disc-spinner-item">
+                <span class="disc-label disc-20">20%</span>
+                ${lossSpinner(p.id,'d20',r.d20)}
+              </div>
+              <div class="disc-spinner-item">
+                <span class="disc-label disc-30">30%</span>
+                ${lossSpinner(p.id,'d30',r.d30)}
+              </div>
+              <div class="disc-spinner-item">
+                <span class="disc-label disc-50">50%</span>
+                ${lossSpinner(p.id,'d50',r.d50)}
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
       </div>
     </div>
     <div class="summary-bar">
@@ -806,7 +887,7 @@ function _loss_fmtJP(d){ const [,m,dd]=d.split('-'); return `${Number(m)}月${Nu
 
 /* ========== report.js ========== */
 /** report.js - 日報（自動保存・コピーのみ） */
-let data={sales:0,customers:0,body:'',name:''}, timer=null;
+let data={sales:0,customers:0,body:'',name:''}, timer=_report_null;
 
 async function initReport(container) {
   const existing=await dbGet(STORES.REPORT,todayStr());
@@ -883,10 +964,10 @@ async function autoSave(){
  * タブ1: 割引分析（在庫入力・グラフ・完売予測・割引推奨）
  * タブ2: 追加製造支援（時刻別推奨・おすすめ商品・記録）
  */
-let record=null, idealStock={}, weekdayAvg={}, yesterdayStock={};
+let record=_discount_null, idealStock={}, weekdayAvg={}, yesterdayStock={};
 let _discount_products=[], mfgRecords=[], lossRecords=[];
 let _discount_currentTab='analysis';
-let chartInst=null;
+let chartInst=_discount_null;
 const SLOTS=generateTimeSlots();
 
 async function initDiscount(container) {
@@ -906,14 +987,14 @@ async function initDiscount(container) {
 }
 
 /* ============================================================ 共通 */
-function getStock(t){ const l=record.inventoryLogs.find(l=>l.time===t); return l?l.stock:null; }
+function getStock(t){ const l=record.inventoryLogs.find(l=>l.time===t); return l?l.stock:_discount_null; }
 function setStock(t,v){
   const idx=record.inventoryLogs.findIndex(l=>l.time===t);
-  if(v===''||v==null){ if(idx>=0) record.inventoryLogs.splice(idx,1); return; }
+  if(v===''||v==_discount_null){ if(idx>=0) record.inventoryLogs.splice(idx,1); return; }
   if(idx>=0) record.inventoryLogs[idx].stock=Number(v);
   else record.inventoryLogs.push({time:t,stock:Number(v)});
 }
-function latestLog(){ return [...record.inventoryLogs].sort((a,b)=>b.time.localeCompare(a.time))[0]||null; }
+function latestLog(){ return [...record.inventoryLogs].sort((a,b)=>b.time.localeCompare(a.time))[0]||_discount_null; }
 function _discount_fmtJP(d){ const[,m,dd]=d.split('-'); return `${Number(m)}月${Number(dd)}日`; }
 
 /* ============================================================ メインレンダー */
@@ -1004,15 +1085,15 @@ function renderAnalysisTab(prediction, rec, latest, nearSlot) {
           ${SLOTS.map(t=>{
             const v=getStock(t);
             const ideal=idealStock[t];
-            const diff=v!=null&&ideal!=null?v-ideal:null;
-            const diffColor=diff!=null?(diff>5?'#C62828':diff<-5?'#1565C0':'inherit'):'inherit';
+            const diff=v!=_discount_null&&ideal!=_discount_null?v-ideal:_discount_null;
+            const diffColor=diff!=_discount_null?(diff>5?'#C62828':diff<-5?'#1565C0':'inherit'):'inherit';
             return `<span class="timeline-time">${t}</span>
               <div style="display:flex;align-items:center;gap:6px;">
-                <input type="number" class="timeline-input stock-inp ${v!=null?'has-value':''}" data-t="${t}"
+                <input type="number" class="timeline-input stock-inp ${v!=_discount_null?'has-value':''}" data-t="${t}"
                   value="${v??''}" placeholder="個" inputmode="numeric" min="0"/>
                 <span style="font-size:11px;color:${diffColor};min-width:40px;">
-                  ${ideal!=null?`理想:${ideal}個`:''}
-                  ${diff!=null?`(${diff>0?'+':''}${diff})` : ''}
+                  ${ideal!=_discount_null?`理想:${ideal}個`:''}
+                  ${diff!=_discount_null?`(${diff>0?'+':''}${diff})` : ''}
                 </span>
               </div>`;
           }).join('')}
@@ -1039,7 +1120,7 @@ function renderAnalysisTab(prediction, rec, latest, nearSlot) {
 /* ============================================================ 追加製造支援タブ */
 function renderManufactureTab(wd, nowT) {
   const latest=latestLog();
-  const currentStock=latest?latest.stock:null;
+  const currentStock=latest?latest.stock:_discount_null;
   const mfgRec=getManufactureRecommendation(currentStock??0, wd, nowT);
   const prodRec=getProductRecommendations(mfgRecords, lossRecords, _discount_products, wd);
 
@@ -1052,7 +1133,7 @@ function renderManufactureTab(wd, nowT) {
       <div class="stat-card">
         <div class="stat-icon">📦</div>
         <div class="stat-label">現在在庫</div>
-        <div class="stat-value">${currentStock??'－'}<span class="stat-unit">${currentStock!=null?'個':''}</span></div>
+        <div class="stat-value">${currentStock??'－'}<span class="stat-unit">${currentStock!=_discount_null?'個':''}</span></div>
       </div>
       <div class="stat-card">
         <div class="stat-icon">🎯</div>
@@ -1210,12 +1291,12 @@ function _discount_bindEvents(container) {
 function renderChart(container) {
   const canvas=container.querySelector('#stockChart');
   if(!canvas||typeof Chart==='undefined') return;
-  if(chartInst){ chartInst.destroy(); chartInst=null; }
+  if(chartInst){ chartInst.destroy(); chartInst=_discount_null; }
 
   const current  = SLOTS.map(t=>getStock(t));
-  const ideal    = SLOTS.map(t=>idealStock[t]??null);
-  const wdAvg    = SLOTS.map(t=>weekdayAvg[t]??null);
-  const yesterday= SLOTS.map(t=>yesterdayStock[t]??null);
+  const ideal    = SLOTS.map(t=>idealStock[t]??_discount_null);
+  const wdAvg    = SLOTS.map(t=>weekdayAvg[t]??_discount_null);
+  const yesterday= SLOTS.map(t=>yesterdayStock[t]??_discount_null);
 
   // 完売予測線
   const pred=predictSoldOut(record.inventoryLogs,idealStock);
@@ -1248,10 +1329,10 @@ function renderChart(container) {
 
 function buildPredLine(pred) {
   const sorted=[...record.inventoryLogs].sort((a,b)=>a.time.localeCompare(b.time));
-  if(!sorted.length||!pred.predictedTime) return SLOTS.map(()=>null);
+  if(!sorted.length||!pred.predictedTime) return SLOTS.map(()=>_discount_null);
   const last=sorted[sorted.length-1];
   return SLOTS.map(t=>{
-    if(t<last.time) return null;
+    if(t<last.time) return _discount_null;
     if(toMin(t)>=toMin(pred.predictedTime)) return 0;
     const total=toMin(pred.predictedTime)-toMin(last.time);
     const elapsed=toMin(t)-toMin(last.time);
@@ -1520,7 +1601,9 @@ function escHtml(s) { const d=document.createElement('div'); d.textContent=s??''
 const FS_KEY='app_font_size';
 const FS_MAP={ small:'14px', medium:'16px', large:'19px' };
 function applyFontSize(size) {
-  document.documentElement.style.setProperty('--fs-base', FS_MAP[size]||'16px');
+  const sz = FS_MAP[size]||'16px';
+  document.documentElement.style.fontSize = sz;
+  document.documentElement.style.setProperty('--fs-base', sz);
   localStorage.setItem(FS_KEY, size);
 }
 function getSavedFontSize() { return localStorage.getItem(FS_KEY)||'medium'; }

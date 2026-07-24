@@ -55,7 +55,7 @@
 /* ---------- リセット ---------- */
 *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
 html { font-size: var(--fs-base); -webkit-text-size-adjust:100%; }
-body { font-family:var(--font); background:var(--bg); color:var(--text); line-height:1.6; overflow-x:hidden; min-height:100dvh; }
+body { font-family:var(--font); background:var(--bg); color:var(--text); line-height:1.6; overflow-x:hidden; min-height:100dvh; font-size:1rem; }
 #app { position:relative; min-height:100dvh; }
 
 /* ---------- ヘッダー ---------- */
@@ -216,8 +216,10 @@ button:disabled { opacity:.35; cursor:not-allowed !important; }
 
 /* 数値表示（中央・白背景） */
 .qty-display {
-  flex:1; min-width:0; border:none;
+  flex:1; min-width:0;
+  border:none;
   border-left:1.5px solid var(--primary-bg2);
+  border-right:1.5px solid var(--primary-bg2);
   text-align:center;
   font-size:17px; font-weight:700; color:var(--primary);
   font-family:var(--font); background:#fff;
@@ -490,3 +492,85 @@ button:disabled { opacity:.35; cursor:not-allowed !important; }
   font-weight: 600;
   font-size: 12px;
 }
+
+/* ---------- ロス計算 割引タブ（縦型レイアウト） ---------- */
+.disc-product-row {
+  padding: 12px var(--sp-md);
+  border-bottom: 1px solid var(--primary-bg);
+}
+.disc-product-row:last-child { border-bottom: none; }
+
+.disc-product-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.disc-price-badge {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent-dark);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-light);
+  border-radius: var(--r-xl);
+  padding: 2px 10px;
+  min-width: 60px;
+  text-align: right;
+}
+
+.disc-spinner-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.disc-spinner-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.disc-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: var(--r-xl);
+}
+
+/* ロス用スピナーを幅いっぱいに */
+.disc-spinner-item .loss-qty-wrap {
+  width: 100%;
+  justify-content: center;
+}
+.disc-spinner-item .loss-qty-btn {
+  flex: 1;
+  max-width: 36px;
+}
+.disc-spinner-item .loss-qty-display {
+  flex: 1;
+  width: auto;
+  min-width: 28px;
+}
+
+/* フォントサイズ変数をrem換算で全要素に波及させる */
+.tbl { font-size: 0.82rem; }
+.tbl th { font-size: 0.78rem; }
+.card-header { font-size: 0.94rem; }
+.btn { font-size: 0.94rem; }
+.tab-btn { font-size: 0.88rem; }
+.nav-item { font-size: 0.94rem; }
+.summary-row { font-size: 0.9rem; }
+.summary-row.total { font-size: 1.05rem; }
+.form-input, .form-textarea { font-size: 1rem; }
+.form-label { font-size: 0.82rem; }
+.stat-value { font-size: 1.5rem; }
+.predict-percent { font-size: 2.6rem; }
+.rank-name, .rank-value { font-size: 0.88rem; }
