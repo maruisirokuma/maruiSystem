@@ -1,4 +1,4 @@
-/* サンドイッチ販売支援システム v2.0 - bundled */
+/* サンドイッチ販売支援システム v3.0 - bundled */
 (async function() {
 'use strict';
 
@@ -15,7 +15,7 @@ const STORES = {
   DISCOUNT:  'DiscountAnalysisRecord',
 };
 
-let _db = null;
+let _db = _db_null;
 
 function openDB() {
   if (_db) return Promise.resolve(_db);
@@ -43,7 +43,7 @@ const tx = (store, mode, fn) =>
     const t = db.transaction(store, mode);
     const s = t.objectStore(store);
     const req = fn(s);
-    req.onsuccess = () => resolve(req.result ?? null);
+    req.onsuccess = () => resolve(req.result ?? _db_null);
     req.onerror   = () => reject(req.error);
   }));
 
@@ -396,9 +396,13 @@ function _manufacture_render(container) {
 
         <div class="card">
           <div class="tbl-wrap">
-            <table class="tbl">
-              <colgroup><col style="width:34%"><col style="width:16%"><col style="width:36%"><col style="width:14%"></colgroup>
-              <thead><tr><th>品名</th><th>価格</th><th>製造個数</th><th>小計</th></tr></thead>
+            <table class="tbl mfg-tbl" style="table-layout:fixed;">
+              <colgroup>
+                <col style="width:28%">
+                <col style="width:58%">
+                <col style="width:14%">
+              </colgroup>
+              <thead><tr><th>品名</th><th style="text-align:center;">製造個数</th><th style="text-align:right;padding-right:8px;">小計</th></tr></thead>
               <tbody>
                 ${_manufacture_products.map(p=>mfgRow(p)).join('')}
               </tbody>
@@ -442,28 +446,23 @@ function mfgRow(p) {
   const c=counts[p.id]||0;
   return `
     <tr data-id="${p.id}">
-      <td>${escHtml(p.name)}</td>
-      <td style="text-align:center;">${p.price}円</td>
+      <td class="product-cell" title="${escHtml(p.name)}">${escHtml(p.name)}<br><span style="font-size:11px;color:var(--text-sub);font-weight:400;">${p.price}円</span></td>
       <td>
-        <div class="qty-wrap" style="margin:0 auto;width:fit-content;">
-          <div class="qty-5-row">
-            <button class="qty-btn" data-step="-5" data-id="${p.id}">－5</button>
-            <button class="qty-btn" data-step="+5" data-id="${p.id}">＋5</button>
-          </div>
-          <div class="qty-1-row">
-            <button class="qty-btn" data-step="-1" data-id="${p.id}">－</button>
-            <input type="number" class="qty-display count-input" data-id="${p.id}" value="${c}" min="0" inputmode="numeric"/>
-            <button class="qty-btn" data-step="+1" data-id="${p.id}">＋</button>
-          </div>
+        <div class="qty-wrap">
+          <button class="qty-btn-5" data-step="-5" data-id="${p.id}">−5</button>
+          <button class="qty-btn-1" data-step="-1" data-id="${p.id}">−1</button>
+          <input type="number" class="qty-display count-input" data-id="${p.id}" value="${c}" min="0" inputmode="numeric"/>
+          <button class="qty-btn-1" data-step="+1" data-id="${p.id}">＋1</button>
+          <button class="qty-btn-5" data-step="+5" data-id="${p.id}">＋5</button>
         </div>
       </td>
-      <td class="subtotal" data-id="${p.id}" style="text-align:right;font-weight:700;">${(c*p.price).toLocaleString()}円</td>
+      <td class="subtotal" data-id="${p.id}" style="text-align:right;font-weight:700;font-size:12px;padding-right:6px;">${(c*p.price).toLocaleString()}円</td>
     </tr>`;
 }
 
 function bindMfgEvents(container) {
   // スピナーボタン
-  container.querySelectorAll('.qty-btn').forEach(btn=>{
+  container.querySelectorAll('.qty-btn-5,.qty-btn-1').forEach(btn=>{
     btn.addEventListener('click',()=>{
       const id=btn.dataset.id, step=Number(btn.dataset.step);
       pushHistory();
@@ -646,8 +645,8 @@ function renderDiscountTab(t) {
   return `
     <div class="card">
       <div class="tbl-wrap">
-        <table class="tbl">
-          <colgroup><col style="width:30%"><col style="width:23%"><col style="width:23%"><col style="width:24%"></colgroup>
+        <table class="tbl loss-tbl" style="table-layout:fixed;">
+          <colgroup><col style="width:28%"><col style="width:24%"><col style="width:24%"><col style="width:24%"></colgroup>
           <thead><tr><th>品名</th><th>20%</th><th>30%</th><th>50%</th></tr></thead>
           <tbody>
             ${_loss_products.map(p=>{
@@ -675,8 +674,8 @@ function renderLossTab(t) {
   return `
     <div class="card">
       <div class="tbl-wrap">
-        <table class="tbl">
-          <colgroup><col style="width:40%"><col style="width:30%"><col style="width:30%"></colgroup>
+        <table class="tbl loss-tbl" style="table-layout:fixed;">
+          <colgroup><col style="width:38%"><col style="width:32%"><col style="width:30%"></colgroup>
           <thead><tr><th>品名</th><th>ロス個数</th><th>ロス金額</th></tr></thead>
           <tbody>
             ${_loss_products.map(p=>{
@@ -807,7 +806,7 @@ function _loss_fmtJP(d){ const [,m,dd]=d.split('-'); return `${Number(m)}月${Nu
 
 /* ========== report.js ========== */
 /** report.js - 日報（自動保存・コピーのみ） */
-let data={sales:0,customers:0,body:'',name:''}, timer=null;
+let data={sales:0,customers:0,body:'',name:''}, timer=_report_null;
 
 async function initReport(container) {
   const existing=await dbGet(STORES.REPORT,todayStr());
@@ -884,10 +883,10 @@ async function autoSave(){
  * タブ1: 割引分析（在庫入力・グラフ・完売予測・割引推奨）
  * タブ2: 追加製造支援（時刻別推奨・おすすめ商品・記録）
  */
-let record=null, idealStock={}, weekdayAvg={}, yesterdayStock={};
+let record=_discount_null, idealStock={}, weekdayAvg={}, yesterdayStock={};
 let _discount_products=[], mfgRecords=[], lossRecords=[];
 let _discount_currentTab='analysis';
-let chartInst=null;
+let chartInst=_discount_null;
 const SLOTS=generateTimeSlots();
 
 async function initDiscount(container) {
@@ -907,14 +906,14 @@ async function initDiscount(container) {
 }
 
 /* ============================================================ 共通 */
-function getStock(t){ const l=record.inventoryLogs.find(l=>l.time===t); return l?l.stock:null; }
+function getStock(t){ const l=record.inventoryLogs.find(l=>l.time===t); return l?l.stock:_discount_null; }
 function setStock(t,v){
   const idx=record.inventoryLogs.findIndex(l=>l.time===t);
-  if(v===''||v==null){ if(idx>=0) record.inventoryLogs.splice(idx,1); return; }
+  if(v===''||v==_discount_null){ if(idx>=0) record.inventoryLogs.splice(idx,1); return; }
   if(idx>=0) record.inventoryLogs[idx].stock=Number(v);
   else record.inventoryLogs.push({time:t,stock:Number(v)});
 }
-function latestLog(){ return [...record.inventoryLogs].sort((a,b)=>b.time.localeCompare(a.time))[0]||null; }
+function latestLog(){ return [...record.inventoryLogs].sort((a,b)=>b.time.localeCompare(a.time))[0]||_discount_null; }
 function _discount_fmtJP(d){ const[,m,dd]=d.split('-'); return `${Number(m)}月${Number(dd)}日`; }
 
 /* ============================================================ メインレンダー */
@@ -1005,15 +1004,15 @@ function renderAnalysisTab(prediction, rec, latest, nearSlot) {
           ${SLOTS.map(t=>{
             const v=getStock(t);
             const ideal=idealStock[t];
-            const diff=v!=null&&ideal!=null?v-ideal:null;
-            const diffColor=diff!=null?(diff>5?'#C62828':diff<-5?'#1565C0':'inherit'):'inherit';
+            const diff=v!=_discount_null&&ideal!=_discount_null?v-ideal:_discount_null;
+            const diffColor=diff!=_discount_null?(diff>5?'#C62828':diff<-5?'#1565C0':'inherit'):'inherit';
             return `<span class="timeline-time">${t}</span>
               <div style="display:flex;align-items:center;gap:6px;">
-                <input type="number" class="timeline-input stock-inp ${v!=null?'has-value':''}" data-t="${t}"
+                <input type="number" class="timeline-input stock-inp ${v!=_discount_null?'has-value':''}" data-t="${t}"
                   value="${v??''}" placeholder="個" inputmode="numeric" min="0"/>
                 <span style="font-size:11px;color:${diffColor};min-width:40px;">
-                  ${ideal!=null?`理想:${ideal}個`:''}
-                  ${diff!=null?`(${diff>0?'+':''}${diff})` : ''}
+                  ${ideal!=_discount_null?`理想:${ideal}個`:''}
+                  ${diff!=_discount_null?`(${diff>0?'+':''}${diff})` : ''}
                 </span>
               </div>`;
           }).join('')}
@@ -1026,7 +1025,7 @@ function renderAnalysisTab(prediction, rec, latest, nearSlot) {
       <div class="card-header"><span class="card-header-icon">📈</span>在庫推移グラフ</div>
       <div class="card-body">
         <div style="font-size:11px;color:var(--text-sub);margin-bottom:6px;display:flex;flex-wrap:wrap;gap:8px;">
-          <span style="color:#1565C0;">■ 現在</span>
+          <span style="color:#2E7D32;">■ 現在</span>
           <span style="color:#1565C0;">■ 理想</span>
           <span style="color:#9E9E9E;">■ 曜日平均</span>
           <span style="color:#F57F17;">■ 昨日</span>
@@ -1040,7 +1039,7 @@ function renderAnalysisTab(prediction, rec, latest, nearSlot) {
 /* ============================================================ 追加製造支援タブ */
 function renderManufactureTab(wd, nowT) {
   const latest=latestLog();
-  const currentStock=latest?latest.stock:null;
+  const currentStock=latest?latest.stock:_discount_null;
   const mfgRec=getManufactureRecommendation(currentStock??0, wd, nowT);
   const prodRec=getProductRecommendations(mfgRecords, lossRecords, _discount_products, wd);
 
@@ -1053,7 +1052,7 @@ function renderManufactureTab(wd, nowT) {
       <div class="stat-card">
         <div class="stat-icon">📦</div>
         <div class="stat-label">現在在庫</div>
-        <div class="stat-value">${currentStock??'－'}<span class="stat-unit">${currentStock!=null?'個':''}</span></div>
+        <div class="stat-value">${currentStock??'－'}<span class="stat-unit">${currentStock!=_discount_null?'個':''}</span></div>
       </div>
       <div class="stat-card">
         <div class="stat-icon">🎯</div>
@@ -1211,12 +1210,12 @@ function _discount_bindEvents(container) {
 function renderChart(container) {
   const canvas=container.querySelector('#stockChart');
   if(!canvas||typeof Chart==='undefined') return;
-  if(chartInst){ chartInst.destroy(); chartInst=null; }
+  if(chartInst){ chartInst.destroy(); chartInst=_discount_null; }
 
   const current  = SLOTS.map(t=>getStock(t));
-  const ideal    = SLOTS.map(t=>idealStock[t]??null);
-  const wdAvg    = SLOTS.map(t=>weekdayAvg[t]??null);
-  const yesterday= SLOTS.map(t=>yesterdayStock[t]??null);
+  const ideal    = SLOTS.map(t=>idealStock[t]??_discount_null);
+  const wdAvg    = SLOTS.map(t=>weekdayAvg[t]??_discount_null);
+  const yesterday= SLOTS.map(t=>yesterdayStock[t]??_discount_null);
 
   // 完売予測線
   const pred=predictSoldOut(record.inventoryLogs,idealStock);
@@ -1228,7 +1227,7 @@ function renderChart(container) {
     data:{
       labels:SLOTS,
       datasets:[
-        {label:'現在在庫',  data:current,   borderColor:'#1565C0',backgroundColor:'rgba(21,101,192,.1)',borderWidth:3,tension:.3,spanGaps:true},
+        {label:'現在在庫',  data:current,   borderColor:'#2E7D32',backgroundColor:'rgba(46,125,50,.1)',borderWidth:3,tension:.3,spanGaps:true},
         {label:'理想在庫',  data:ideal,     borderColor:'#1565C0',borderDash:[6,4],borderWidth:2,tension:.3,spanGaps:true,pointRadius:0},
         {label:'曜日平均',  data:wdAvg,     borderColor:'#9E9E9E',borderDash:[2,2],borderWidth:1.5,tension:.3,spanGaps:true,pointRadius:0},
         {label:'昨日',      data:yesterday, borderColor:'#F57F17',borderWidth:1.5,tension:.3,spanGaps:true,pointRadius:0},
@@ -1249,10 +1248,10 @@ function renderChart(container) {
 
 function buildPredLine(pred) {
   const sorted=[...record.inventoryLogs].sort((a,b)=>a.time.localeCompare(b.time));
-  if(!sorted.length||!pred.predictedTime) return SLOTS.map(()=>null);
+  if(!sorted.length||!pred.predictedTime) return SLOTS.map(()=>_discount_null);
   const last=sorted[sorted.length-1];
   return SLOTS.map(t=>{
-    if(t<last.time) return null;
+    if(t<last.time) return _discount_null;
     if(toMin(t)>=toMin(pred.predictedTime)) return 0;
     const total=toMin(pred.predictedTime)-toMin(last.time);
     const elapsed=toMin(t)-toMin(last.time);

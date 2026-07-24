@@ -87,16 +87,12 @@ function mfgRow(p) {
       <td>${escHtml(p.name)}</td>
       <td style="text-align:center;">${p.price}円</td>
       <td>
-        <div class="qty-wrap" style="margin:0 auto;width:fit-content;">
-          <div class="qty-5-row">
-            <button class="qty-btn" data-step="-5" data-id="${p.id}">－5</button>
-            <button class="qty-btn" data-step="+5" data-id="${p.id}">＋5</button>
-          </div>
-          <div class="qty-1-row">
-            <button class="qty-btn" data-step="-1" data-id="${p.id}">－</button>
-            <input type="number" class="qty-display count-input" data-id="${p.id}" value="${c}" min="0" inputmode="numeric"/>
-            <button class="qty-btn" data-step="+1" data-id="${p.id}">＋</button>
-          </div>
+        <div class="qty-wrap">
+          <button class="qty-btn-5" data-step="-5" data-id="${p.id}">-5</button>
+          <button class="qty-btn-1" data-step="-1" data-id="${p.id}">-1</button>
+          <input type="number" class="qty-display count-input" data-id="${p.id}" value="${c}" min="0" inputmode="numeric"/>
+          <button class="qty-btn-1" data-step="+1" data-id="${p.id}">+1</button>
+          <button class="qty-btn-5" data-step="+5" data-id="${p.id}">+5</button>
         </div>
       </td>
       <td class="subtotal" data-id="${p.id}" style="text-align:right;font-weight:700;">${(c*p.price).toLocaleString()}円</td>
@@ -105,7 +101,7 @@ function mfgRow(p) {
 
 function bindMfgEvents(container) {
   // スピナーボタン
-  container.querySelectorAll('.qty-btn').forEach(btn=>{
+  container.querySelectorAll('.qty-btn-5,.qty-btn-1').forEach(btn=>{
     btn.addEventListener('click',()=>{
       const id=btn.dataset.id, step=Number(btn.dataset.step);
       pushHistory();

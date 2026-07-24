@@ -153,7 +153,7 @@ function renderAnalysisTab(prediction, rec, latest, nearSlot) {
       <div class="card-header"><span class="card-header-icon">📈</span>在庫推移グラフ</div>
       <div class="card-body">
         <div style="font-size:11px;color:var(--text-sub);margin-bottom:6px;display:flex;flex-wrap:wrap;gap:8px;">
-          <span style="color:#1565C0;">■ 現在</span>
+          <span style="color:#2E7D32;">■ 現在</span>
           <span style="color:#1565C0;">■ 理想</span>
           <span style="color:#9E9E9E;">■ 曜日平均</span>
           <span style="color:#F57F17;">■ 昨日</span>
@@ -355,7 +355,7 @@ function renderChart(container) {
     data:{
       labels:SLOTS,
       datasets:[
-        {label:'現在在庫',  data:current,   borderColor:'#1565C0',backgroundColor:'rgba(21,101,192,.1)',borderWidth:3,tension:.3,spanGaps:true},
+        {label:'現在在庫',  data:current,   borderColor:'#2E7D32',backgroundColor:'rgba(46,125,50,.1)',borderWidth:3,tension:.3,spanGaps:true},
         {label:'理想在庫',  data:ideal,     borderColor:'#1565C0',borderDash:[6,4],borderWidth:2,tension:.3,spanGaps:true,pointRadius:0},
         {label:'曜日平均',  data:wdAvg,     borderColor:'#9E9E9E',borderDash:[2,2],borderWidth:1.5,tension:.3,spanGaps:true,pointRadius:0},
         {label:'昨日',      data:yesterday, borderColor:'#F57F17',borderWidth:1.5,tension:.3,spanGaps:true,pointRadius:0},

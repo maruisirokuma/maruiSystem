@@ -22,19 +22,19 @@
   /* Semantic */
   --danger:         #D32F2F;
   --danger-light:   #FFEBEE;
-  --warning:        #F9A825;
+  --warning:        #F57C00;
   --warning-light:  #FFF3E0;
-  --success:        #1565C0;
-  --success-light:  #E3F2FD;
+  --success:        #2E7D32;
+  --success-light:  #E8F5E9;
 
   /* Neutrals */
   --surface:        #FFFFFF;
-  --bg:             #F5F5F5;
-  --border:         #E0E0E0;
-  --border-strong:  #BDBDBD;
-  --text:           #16324F;
+  --bg:             #F0F4F8;
+  --border:         #CFD8DC;
+  --border-strong:  #B0BEC5;
+  --text:           #1A237E;
   --text-sub:       #546E7A;
-  --text-hint:      #90A4AE;
+  --text-hint:      #B0BEC5;
 
   /* Shadows */
   --shadow-sm: 0 1px 4px rgba(21,101,192,.10), 0 1px 2px rgba(21,101,192,.08);
@@ -169,53 +169,59 @@ button:disabled { opacity:.35; cursor:not-allowed !important; }
 
 /* ============================================================
    数量スピナー（製造計算用）
-   レイアウト：
-   [ ─5 ][ ─1 ][ 数値 ][ ＋1 ][ ＋5 ]
-   横一列・コンパクト
+   レイアウト：[ -5 ][ -1 ][ 数値 ][ +1 ][ +5 ]
+   横一列・角丸・画像通り
 ============================================================ */
 .qty-wrap {
-  display:block; align-items:stretch; gap:0;
-  border-radius:var(--r-md); overflow:hidden;
-  border:2px solid var(--primary); background:var(--surface);
-  width:100% !important; max-width:200px; margin:0 auto;
-  box-shadow:0 1px 4px rgba(21,101,192,.12);
+  display:flex; align-items:center; gap:0;
+  border-radius:32px;
+  border:2px solid var(--primary-bg2);
+  background:var(--primary-bg);
+  width:100%; max-width:210px; margin:0 auto;
+  box-shadow:0 2px 8px rgba(21,101,192,.10);
+  overflow:hidden;
+  height:44px;
 }
 
-.qty-5-row, .qty-1-row { display:flex; width:100%; }
-.qty-btn {
-  appearance:none; -webkit-appearance:none;
-  border:0; cursor:pointer; display:flex; align-items:center; justify-content:center;
-  font-family:var(--font); font-weight:700; color:var(--primary);
-  min-height:42px; line-height:1; transition:background .15s;
-}
-.qty-5-row .qty-btn {
-  background:var(--primary-bg); border:none;
-  width:50%; flex:1 1 50%;
-  font-size:11px; padding:2px 0;
-  border-right:1px solid var(--primary-bg2);
-}
-.qty-5-row .qty-btn:last-child { border-right:none; border-left:1px solid var(--primary-bg2); }
-.qty-5-row .qty-btn:active { background:var(--primary-bg2); }
-
-.qty-1-row .qty-btn {
-  background:var(--surface); border:none;
-  width:36px; flex-shrink:0;
-  font-size:20px; font-weight:700; color:var(--primary);
-  cursor:pointer; display:flex; align-items:center; justify-content:center;
-  border-right:1px solid var(--border);
+/* ±5ボタン（外側・薄い青背景） */
+.qty-btn-5 {
+  background:var(--primary-bg);
+  border:none;
+  width:42px; flex-shrink:0; height:100%;
+  font-size:12px; font-weight:700;
+  color:var(--primary);
+  cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  border-right:1.5px solid var(--primary-bg2);
   transition:background .15s;
-  min-height:42px;
+  letter-spacing:-.5px;
 }
-.qty-1-row .qty-btn:last-child { border-right:none; border-left:1px solid var(--border); }
-.qty-1-row .qty-btn:active { background:var(--primary-bg); }
+.qty-btn-5:last-child { border-right:none; border-left:1.5px solid var(--primary-bg2); }
+.qty-btn-5:active { background:var(--primary-bg2); }
 
-/* 数値表示 */
+/* ±1ボタン（内側・白背景） */
+.qty-btn-1 {
+  background:#fff;
+  border:none;
+  width:38px; flex-shrink:0; height:100%;
+  font-size:14px; font-weight:700;
+  color:var(--primary);
+  cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  border-right:1.5px solid var(--primary-bg2);
+  transition:background .15s;
+}
+.qty-btn-1:last-child { border-right:none; border-left:1.5px solid var(--primary-bg2); }
+.qty-btn-1:active { background:var(--primary-bg); }
+
+/* 数値表示（中央・白背景） */
 .qty-display {
-  flex:1; min-width:0; border:none; text-align:center;
+  flex:1; min-width:0; border:none;
+  text-align:center;
   font-size:17px; font-weight:700; color:var(--primary);
-  font-family:var(--font); background:var(--surface);
-  -moz-appearance:textfield; padding:0 2px;
-  min-height:42px;
+  font-family:var(--font); background:#fff;
+  -moz-appearance:textfield; padding:0;
+  height:100%;
 }
 .qty-display:focus { outline:none; background:#EFF8FF; }
 .qty-display::-webkit-inner-spin-button,
@@ -228,19 +234,18 @@ button:disabled { opacity:.35; cursor:not-allowed !important; }
 .loss-qty-wrap {
   display:inline-flex; align-items:stretch;
   border:1.5px solid var(--primary); border-radius:var(--r-sm);
-  overflow:hidden; background:var(--surface); width:98px !important;
-  max-width:100%; flex-shrink:0;
+  overflow:hidden; background:var(--surface);
 }
 .loss-qty-btn {
   background:var(--primary-bg); border:none;
-  width:30px; min-width:30px; min-height:34px;
+  width:30px; min-height:34px;
   font-size:17px; font-weight:700; color:var(--primary);
   cursor:pointer; display:flex; align-items:center; justify-content:center;
   transition:background .15s; flex-shrink:0;
 }
 .loss-qty-btn:active { background:var(--primary-bg2); }
 .loss-qty-display {
-  width:34px; min-width:34px; min-height:34px; border:none; border-left:1px solid var(--primary-bg2); border-right:1px solid var(--primary-bg2);
+  width:34px; min-height:34px; border:none; border-left:1px solid var(--primary-bg2); border-right:1px solid var(--primary-bg2);
   text-align:center; font-size:14px; font-weight:700;
   font-family:var(--font); background:var(--surface); color:var(--primary);
   -moz-appearance:textfield;
@@ -252,8 +257,6 @@ button:disabled { opacity:.35; cursor:not-allowed !important; }
 /* ---------- テーブル ---------- */
 .tbl-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
 .tbl { width:100%; border-collapse:collapse; font-size:13px; table-layout:fixed; }
-.tbl:has(.loss-qty-wrap) { min-width:390px; }
-.tbl:has(.qty-wrap) { min-width:500px; }
 
 /* 製造計算テーブルの列幅 */
 .tbl.mfg-tbl { table-layout:fixed; }
@@ -456,4 +459,33 @@ button:disabled { opacity:.35; cursor:not-allowed !important; }
   .app-header   { padding-top:env(safe-area-inset-top); height:calc(var(--header-h) + env(safe-area-inset-top)); }
   .main-content { padding-top:calc(var(--header-h) + env(safe-area-inset-top)); }
   .drawer       { padding-top:env(safe-area-inset-top); }
+}
+
+/* ---------- 製造テーブル追加スタイル ---------- */
+/* 商品名セル：折り返さず省略表示 */
+.tbl td.product-cell {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.3;
+  max-width: 0; /* table-layout:fixed必須 */
+  padding-right: 4px;
+}
+
+/* 小計セルのフォント調整 */
+.tbl td.subtotal {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ロス計算テーブル：商品名省略 */
+.loss-tbl td:first-child {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 0;
+  font-weight: 600;
+  font-size: 12px;
 }
