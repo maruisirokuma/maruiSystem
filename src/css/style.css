@@ -238,17 +238,18 @@ button:disabled { opacity:.35; cursor:not-allowed !important; }
   display:inline-flex; align-items:stretch;
   border:1.5px solid var(--primary); border-radius:var(--r-sm);
   overflow:hidden; background:var(--surface);
+  min-width:120px;
 }
 .loss-qty-btn {
   background:var(--primary-bg); border:none;
-  width:30px; min-height:34px;
+  width:38px; min-height:36px;
   font-size:17px; font-weight:700; color:var(--primary);
   cursor:pointer; display:flex; align-items:center; justify-content:center;
   transition:background .15s; flex-shrink:0;
 }
 .loss-qty-btn:active { background:var(--primary-bg2); }
 .loss-qty-display {
-  width:34px; min-height:34px; border:none; border-left:1px solid var(--primary-bg2); border-right:1px solid var(--primary-bg2);
+  flex:1; min-width:44px; min-height:36px; border:none; border-left:1px solid var(--primary-bg2); border-right:1px solid var(--primary-bg2);
   text-align:center; font-size:14px; font-weight:700;
   font-family:var(--font); background:var(--surface); color:var(--primary);
   -moz-appearance:textfield;

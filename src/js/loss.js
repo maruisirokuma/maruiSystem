@@ -72,16 +72,18 @@ function renderDiscountTab(t) {
     <div class="card">
       <div class="tbl-wrap">
         <table class="tbl">
-          <colgroup><col style="width:30%"><col style="width:23%"><col style="width:23%"><col style="width:24%"></colgroup>
-          <thead><tr><th>品名</th><th>20%</th><th>30%</th><th>50%</th></tr></thead>
+          <colgroup><col style="width:24%"><col style="width:19%"><col style="width:19%"><col style="width:19%"><col style="width:19%"></colgroup>
+          <thead><tr><th>品名</th><th>20%</th><th>30%</th><th>50%</th><th>割引額</th></tr></thead>
           <tbody>
             ${products.map(p=>{
               const r=rows[p.id];
+              const {disc}=calcItem(p,r);
               return `<tr data-id="${p.id}">
                 <td>${escHtml(p.name)}</td>
-                <td>${lossSpinner(p.id,'d20',r.d20)}</td>
-                <td>${lossSpinner(p.id,'d30',r.d30)}</td>
-                <td>${lossSpinner(p.id,'d50',r.d50)}</td>
+                <td style="padding:6px 3px;">${lossSpinner(p.id,'d20',r.d20)}</td>
+                <td style="padding:6px 3px;">${lossSpinner(p.id,'d30',r.d30)}</td>
+                <td style="padding:6px 3px;">${lossSpinner(p.id,'d50',r.d50)}</td>
+                <td class="discount-amount" data-id="${p.id}" style="text-align:right;font-weight:700;padding:8px 6px;">${disc.toLocaleString()}円</td>
               </tr>`;
             }).join('')}
           </tbody>
@@ -129,7 +131,6 @@ function lossSpinner(productId, field, value) {
     <input type="number" class="loss-qty-display loss-inp" data-id="${productId}" data-field="${field}" value="${value}" min="0" inputmode="numeric"/>
     <button class="loss-qty-btn" data-id="${productId}" data-field="${field}" data-step="+1">＋</button>
   </div>`;
-}
 
 function bindEvents(container) {
   // タブ切替
@@ -147,6 +148,7 @@ function bindEvents(container) {
       if(inp) inp.value=rows[id][field];
       refreshTotals(container);
       if(field==='lossCount') refreshLossPrice(container,id);
+      else refreshDiscountAmount(container,id);
     });
   });
 
@@ -158,6 +160,7 @@ function bindEvents(container) {
       inp.value=rows[id][field];
       refreshTotals(container);
       if(field==='lossCount') refreshLossPrice(container,id);
+      else refreshDiscountAmount(container,id);
     });
     inp.addEventListener('keydown',e=>{
       if(e.key==='Enter'){ e.preventDefault();
@@ -187,6 +190,11 @@ function refreshTotals(container) {
   set('#t20',`${t.t20}個`); set('#t30',`${t.t30}個`); set('#t50',`${t.t50}個`);
   set('#tDisc',`${t.tDisc.toLocaleString()}円`);
   set('#tLC',`${t.tLC}個`); set('#tLP',`${t.tLP.toLocaleString()}円`);
+}
+function refreshDiscountAmount(container, id) {
+  const p=products.find(p=>p.id==id);
+  const el=container.querySelector(`.discount-amount[data-id="${id}"]`);
+  if(el && p) el.textContent=`${calcItem(p,rows[id]).disc.toLocaleString()}円`;
 }
 function refreshLossPrice(container, id) {
   const p=products.find(p=>p.id==id);
@@ -228,4 +236,4 @@ async function showHistory(container) {
   container.querySelector('#histModal').classList.remove('d-none');
 }
 
-function fmtJP(d){ const [,m,dd]=d.split('-'); return `${Number(m)}月${Number(dd)}日`; }
+function fmtJP(d) { const [,m,dd]=d.split('-'); return `${Number(m)}月${Number(dd)}日`; }
