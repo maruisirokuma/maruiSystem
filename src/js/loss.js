@@ -101,7 +101,7 @@ function renderLossTab(t) {
     <div class="card">
       <div class="tbl-wrap">
         <table class="tbl">
-          <colgroup><col style="width:40%"><col style="width:30%"><col style="width:30%"></colgroup>
+          <colgroup><col style="width:35%"><col style="width:35%"><col style="width:30%"></colgroup>
           <thead><tr><th>品名</th><th>ロス個数</th><th>ロス金額</th></tr></thead>
           <tbody>
             ${products.map(p=>{
@@ -109,8 +109,8 @@ function renderLossTab(t) {
               const {lossPrice}=calcItem(p,r);
               return `<tr data-id="${p.id}">
                 <td>${escHtml(p.name)}</td>
-                <td>${lossSpinner(p.id,'lossCount',r.lossCount)}</td>
-                <td class="loss-price" data-id="${p.id}" style="text-align:right;font-weight:700;">${lossPrice.toLocaleString()}円</td>
+                <td style="padding:6px 4px;">${lossSpinner(p.id,'lossCount',r.lossCount)}</td>
+                <td class="loss-price" data-id="${p.id}" style="text-align:right;font-weight:700;padding:8px 6px;">${lossPrice.toLocaleString()}円</td>
               </tr>`;
             }).join('')}
           </tbody>
