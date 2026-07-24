@@ -131,6 +131,7 @@ function lossSpinner(productId, field, value) {
     <input type="number" class="loss-qty-display loss-inp" data-id="${productId}" data-field="${field}" value="${value}" min="0" inputmode="numeric"/>
     <button class="loss-qty-btn" data-id="${productId}" data-field="${field}" data-step="+1">＋</button>
   </div>`;
+}
 
 function bindEvents(container) {
   // タブ切替
