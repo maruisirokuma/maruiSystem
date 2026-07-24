@@ -217,6 +217,7 @@ button:disabled { opacity:.35; cursor:not-allowed !important; }
 /* 数値表示（中央・白背景） */
 .qty-display {
   flex:1; min-width:0; border:none;
+  border-left:1.5px solid var(--primary-bg2);
   text-align:center;
   font-size:17px; font-weight:700; color:var(--primary);
   font-family:var(--font); background:#fff;
