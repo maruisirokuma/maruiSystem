@@ -260,7 +260,8 @@ button:disabled { opacity:.35; cursor:not-allowed !important; }
 
 /* ---------- テーブル ---------- */
 .tbl-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
-.tbl { width:100%; border-collapse:collapse; font-size:13px; table-layout:fixed; }
+.tbl { width:100%; border-collapse:collapse; font-size:13px; table-layout:auto; }
+.tbl[style*="min-width"] { width:auto; table-layout:auto; }
 
 /* 製造計算テーブルの列幅 */
 .tbl.mfg-tbl { table-layout:fixed; }

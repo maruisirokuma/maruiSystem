@@ -71,19 +71,18 @@ function renderDiscountTab(t) {
   return `
     <div class="card">
       <div class="tbl-wrap">
-        <table class="tbl">
-          <colgroup><col style="width:24%"><col style="width:19%"><col style="width:19%"><col style="width:19%"><col style="width:19%"></colgroup>
-          <thead><tr><th>品名</th><th>20%</th><th>30%</th><th>50%</th><th>割引額</th></tr></thead>
+        <table class="tbl" style="min-width:600px;">
+          <thead><tr><th style="width:25%">品名</th><th style="width:18.75%">20%</th><th style="width:18.75%">30%</th><th style="width:18.75%">50%</th><th style="width:18.75%">割引額</th></tr></thead>
           <tbody>
             ${products.map(p=>{
               const r=rows[p.id];
               const {disc}=calcItem(p,r);
               return `<tr data-id="${p.id}">
-                <td>${escHtml(p.name)}</td>
-                <td style="padding:6px 3px;">${lossSpinner(p.id,'d20',r.d20)}</td>
-                <td style="padding:6px 3px;">${lossSpinner(p.id,'d30',r.d30)}</td>
-                <td style="padding:6px 3px;">${lossSpinner(p.id,'d50',r.d50)}</td>
-                <td class="discount-amount" data-id="${p.id}" style="text-align:right;font-weight:700;padding:8px 6px;">${disc.toLocaleString()}円</td>
+                <td style="width:25%">${escHtml(p.name)}</td>
+                <td style="width:18.75%;padding:8px 2px;">${lossSpinner(p.id,'d20',r.d20)}</td>
+                <td style="width:18.75%;padding:8px 2px;">${lossSpinner(p.id,'d30',r.d30)}</td>
+                <td style="width:18.75%;padding:8px 2px;">${lossSpinner(p.id,'d50',r.d50)}</td>
+                <td class="discount-amount" data-id="${p.id}" style="width:18.75%;text-align:right;font-weight:700;padding:8px 6px;">${disc.toLocaleString()}円</td>
               </tr>`;
             }).join('')}
           </tbody>
